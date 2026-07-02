@@ -1,4 +1,27 @@
-pandas
+# numpy
+# pandas
+# scipy
+# wfdb
+# tqdm
+# matplotlib
+# seaborn
+# scikit-learn
+# # tensorflow-rocm  
+# tensorflow
+# pywt
+
+
 numpy
+pandas
+scipy
 wfdb
-ast
+tqdm
+matplotlib
+seaborn
+# tensorflow-gpu==2.10.0
+tensorflow
+# sklearn
+scikit-learn
+PyWavelets
+fastdw
+neurokit2
