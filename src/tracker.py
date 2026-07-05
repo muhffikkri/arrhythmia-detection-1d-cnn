@@ -1,27 +1,22 @@
 # =====================================================================
-
 # FILE: tracker.py
-
 # =====================================================================
 
 import os
 import json
-import shutil
 import datetime
 
 import pandas as pd
 import matplotlib.pyplot as plt
 
 from sklearn.metrics import (
-confusion_matrix,
-ConfusionMatrixDisplay,
-classification_report
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+    classification_report
 )
 
 # =====================================================================
-
 # CREATE EXPERIMENT DIRECTORY
-
 # =====================================================================
 
 def create_experiment_dir(
@@ -29,8 +24,6 @@ def create_experiment_dir(
     experiment_group,
     experiment_name
 ):
-
-
     timestamp = datetime.datetime.now().strftime(
         "%Y%m%d_%H%M%S"
     )
@@ -62,24 +55,20 @@ def create_experiment_dir(
 
 
 # =====================================================================
-
 # SAVE CONFIG
-
 # =====================================================================
 
 def save_experiment_config(
     config_dict,
     save_dir
 ):
-
-
     save_path = os.path.join(
         save_dir,
         "experiment_config.json"
     )
 
-    with open(save_path, "w") as f:
-
+    # Menggunakan utf-8 untuk penulisan JSON konfigurasi yang aman
+    with open(save_path, "w", encoding="utf-8") as f:
         json.dump(
             config_dict,
             f,
@@ -88,23 +77,17 @@ def save_experiment_config(
 
 
 # =====================================================================
-
-# SAVE HISTORY
-
+# SAVE TRAINING HISTORY
 # =====================================================================
 
 def save_training_history(
     history,
-    save_dir
+    exp_dir
 ):
-
-
-    history_df = pd.DataFrame(
-        history.history
-    )
+    history_df = pd.DataFrame(history)
 
     csv_path = os.path.join(
-        save_dir,
+        exp_dir,
         "training_history.csv"
     )
 
@@ -117,75 +100,75 @@ def save_training_history(
     # LOSS CURVE
     # =========================================================
 
-    plt.figure(figsize=(8, 5))
+    if (
+        "loss" in history_df.columns
+        and
+        "val_loss" in history_df.columns
+    ):
+        plt.figure(figsize=(10, 5))
 
-    plt.plot(
-        history.history["loss"],
-        label="Train Loss"
-    )
-
-    plt.plot(
-        history.history["val_loss"],
-        label="Val Loss"
-    )
-
-    plt.legend()
-
-    plt.title("Loss Curve")
-
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-
-    plt.grid(True)
-
-    plt.savefig(
-        os.path.join(
-            save_dir,
-            "loss_curve.png"
+        plt.plot(
+            history_df["loss"],
+            label="train_loss"
         )
-    )
 
-    plt.close()
+        plt.plot(
+            history_df["val_loss"],
+            label="val_loss"
+        )
+
+        plt.legend()
+        plt.title("Loss Curve")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.grid(True)
+
+        plt.savefig(
+            os.path.join(
+                exp_dir,
+                "loss_curve.png"
+            )
+        )
+        plt.close()
 
     # =========================================================
-    # ACC CURVE
+    # ACCURACY CURVE
     # =========================================================
 
-    plt.figure(figsize=(8, 5))
+    if (
+        "accuracy" in history_df.columns
+        and
+        "val_accuracy" in history_df.columns
+    ):
+        plt.figure(figsize=(10, 5))
 
-    plt.plot(
-        history.history["accuracy"],
-        label="Train Acc"
-    )
-
-    plt.plot(
-        history.history["val_accuracy"],
-        label="Val Acc"
-    )
-
-    plt.legend()
-
-    plt.title("Accuracy Curve")
-
-    plt.xlabel("Epoch")
-    plt.ylabel("Accuracy")
-
-    plt.grid(True)
-
-    plt.savefig(
-        os.path.join(
-            save_dir,
-            "accuracy_curve.png"
+        plt.plot(
+            history_df["accuracy"],
+            label="train_accuracy"
         )
-    )
 
-    plt.close()
+        plt.plot(
+            history_df["val_accuracy"],
+            label="val_accuracy"
+        )
+
+        plt.legend()
+        plt.title("Accuracy Curve")
+        plt.xlabel("Epoch")
+        plt.ylabel("Accuracy")
+        plt.grid(True)
+
+        plt.savefig(
+            os.path.join(
+                exp_dir,
+                "accuracy_curve.png"
+            )
+        )
+        plt.close()
 
 
 # =====================================================================
-
 # SAVE CONFUSION MATRIX
-
 # =====================================================================
 
 def save_confusion_matrix(
@@ -195,8 +178,6 @@ def save_confusion_matrix(
     save_dir,
     normalize=False
 ):
-
-
     cm = confusion_matrix(
         y_true,
         y_pred,
@@ -214,7 +195,8 @@ def save_confusion_matrix(
 
     disp.plot(
         ax=ax,
-        xticks_rotation=45
+        xticks_rotation=45,
+        colorbar=False
     )
 
     filename = (
@@ -224,17 +206,15 @@ def save_confusion_matrix(
         "confusion_matrix.png"
     )
 
+    plt.tight_layout()
     plt.savefig(
         os.path.join(save_dir, filename)
     )
-
     plt.close()
 
 
 # =====================================================================
-
 # SAVE CLASSIFICATION REPORT
-
 # =====================================================================
 
 def save_classification_report(
@@ -243,8 +223,6 @@ def save_classification_report(
     class_names,
     save_dir
 ):
-
-
     report = classification_report(
         y_true,
         y_pred,
@@ -257,66 +235,53 @@ def save_classification_report(
         "classification_report.txt"
     )
 
-    with open(save_path, "w") as f:
-
+    # Kunci Utama 1: Proteksi berkas laporan teks dari masalah encoding Windows
+    with open(save_path, "w", encoding="utf-8") as f:
         f.write(report)
 
 
 # =====================================================================
-
 # SAVE MODEL SUMMARY
-
 # =====================================================================
 
 def save_model_summary(
     model,
     save_dir
 ):
-
-
     save_path = os.path.join(
         save_dir,
         "model_summary.txt"
     )
 
-    with open(save_path, "w") as f:
-
+    # Kunci Utama 2: Menggunakan encoding="utf-8" mutlak untuk menangani box-drawing characters Keras
+    with open(save_path, "w", encoding="utf-8") as f:
         model.summary(
-            print_fn=lambda x: f.write(x + "\n")
+            print_fn=lambda x: f.write(str(x) + "\n")
         )
 
 
 # =====================================================================
-
-# UPDATE MASTER CSV
-
+# UPDATE MASTER TRACKER
 # =====================================================================
 
 def update_master_tracker(
     metrics_dict,
     master_csv
 ):
-
-
     df_new = pd.DataFrame(
         [metrics_dict]
     )
 
     if os.path.exists(master_csv):
-
         df_old = pd.read_csv(master_csv)
-
         df = pd.concat(
             [df_old, df_new],
             ignore_index=True
         )
-
     else:
-
         df = df_new
 
     df.to_csv(
         master_csv,
         index=False
     )
-

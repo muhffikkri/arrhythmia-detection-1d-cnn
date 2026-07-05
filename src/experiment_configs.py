@@ -56,11 +56,12 @@ class Config:
     # =========================================================
 
     KERNEL_SPACES = {
-        "Balanced": [15, 11, 7, 5, 3],
+        # "Balanced": [15, 11, 7, 5, 3],
         # "Balanced_v2": [11, 9, 7, 5, 3],
         # "Local_Focused": [7, 5, 5, 3, 3],
         # "Large_Receptive": [21, 15, 11, 7, 5],
-        "Hybrid_Morphology": [25, 15, 11, 5, 3]
+        "Huge_Receptive": [31, 21, 15, 9, 5]
+        # "Hybrid_Morphology": [25, 15, 11, 5, 3]
     }
 
     # =========================================================
@@ -69,7 +70,7 @@ class Config:
 
     DILATION_SPACES = {
         "Progressive_Dilation": [1, 2, 4, 8, 16],
-        # "Compact_Dilation": [1, 1, 2, 2, 4]
+        "Compact_Dilation": [1, 1, 2, 2, 4]
     }
 
     # =========================================================
@@ -78,7 +79,7 @@ class Config:
 
     TEMPORAL_MODELS = [
         "Pure_CNN",
-        "CNN_BiLSTM",
+        # "CNN_BiLSTM",
         "CNN_Attention"
     ]
 
@@ -86,7 +87,7 @@ class Config:
     # EXPERIMENT TRACKER
     # =========================================================
 
-    EXPERIMENT_GROUP = "baseline_experiments"
+    EXPERIMENT_GROUP = "big_kernel"
 
     MASTER_TRACKER_CSV = (
         "master_experiment_tracker.csv"

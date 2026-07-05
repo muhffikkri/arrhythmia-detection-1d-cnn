@@ -190,19 +190,15 @@ def residual_conv_block(
     # =========================================================
 
     if shortcut.shape[-1] != filters:
-
         shortcut = layers.Conv1D(
-
             filters,
-
             kernel_size=1,
-
             padding='same',
-
-            kernel_regularizer=
-            regularizers.l2(3e-4)
-
+            kernel_regularizer=regularizers.l2(3e-4)
         )(shortcut)
+        
+        # skala shortcut sejajar dengan keluaran cabang utama (x)
+        shortcut = layers.BatchNormalization()(shortcut)
 
     # =========================================================
     # STOCHASTIC DEPTH
@@ -371,17 +367,14 @@ def build_dynamic_cnn(
     x = layers.GlobalAveragePooling1D()(x)
 
     x = layers.Dense(
-
         128,
-
-        activation='relu',
-
-        kernel_regularizer=
-        regularizers.l2(3e-4)
-
+        use_bias=False, 
+        kernel_regularizer=regularizers.l2(3e-4)
     )(x)
-
+    
     x = layers.BatchNormalization()(x)
+
+    x = layers.Activation('relu')(x)    
 
     x = layers.Dropout(0.20)(x)
 

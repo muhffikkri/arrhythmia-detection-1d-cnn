@@ -8,7 +8,7 @@ import os
 
 # =========================================================
 
-BASE_DIR = r"C:/Users/DESKTOP/Desktop/arrhythmia-detection-1d-cnn/"
+BASE_DIR = r"C:\Users\DESKTOP\Desktop\arrhythmia-detection-1d-cnn"
 
 DATASET_DIR = os.path.join(BASE_DIR, "dataset")
 
@@ -102,9 +102,6 @@ SUB_FOLDERS = {
 "E3_clean_500_to_250":
     os.path.join(RESAMPLE_BASE, "cleaned_500_to_250"),
 
-"E5_clean_500_to_250_reference":
-    os.path.join(RESAMPLE_BASE, "cleaned_500_to_250_reference"),
-
 "E4_clean_500_native":
     os.path.join(RESAMPLE_BASE, "cleaned_500_native"),
 
@@ -114,10 +111,6 @@ SUB_FOLDERS = {
 
 # Final Chapman external validation dataset
 "CHAPMAN_CLEAN_250HZ":
-    os.path.join(RESAMPLE_BASE, "chapman_clean_500_to_250"),
-
-# Backward-compatible key used by proccess_chapman.py
-"Chapman_clean_500_to_250":
     os.path.join(RESAMPLE_BASE, "chapman_clean_500_to_250")
 
 }
