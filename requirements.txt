@@ -1,4 +1,10 @@
-pandas
 numpy
+pandas
+scipy
 wfdb
-ast
+tqdm
+matplotlib
+seaborn
+tensorflow-gpu==2.10.0
+sklearn
+scikit-learn
