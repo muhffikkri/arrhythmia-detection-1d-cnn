@@ -38,7 +38,7 @@ Before training, files are run through quantitative and visual exploratory data 
 ---
 
 ## 🏋️ 3. CNN Model Training & Grid Search
-The model training process is run via `src/experiments/run_experiment_multiclass.py` (multiclass Softmax) and `src/experiments/run_experiment_multilabel.py` (multi-label Sigmoid):
+The model training process is run via `src/experiments/run_experiment_softmax.py` (multiclass Softmax) and `src/experiments/run_experiment_sigmoid.py` (multi-label Sigmoid):
 
 *   **Dataset Partitioning**: PTB-XL splits are handled via stratified folds. Folds 1-8 are dedicated to training, Fold 9 to validation/optimization, and Fold 10 is isolated exclusively as the test set.
 *   **Grid Search Parameters**: Fits combinations of filter depths (Small vs. Medium), kernel spaces (Balanced, Large Receptive), dilations, and temporal models (Pure CNN, CNN-BiLSTM, CNN-Attention) as configured in `experiment_configs.py`.

@@ -103,10 +103,10 @@ Execute training scripts for either classification scheme. The hyperparameters c
 
 ```powershell
 # Run multiclass experiment (Softmax classification head)
-python src/experiments/run_experiment_multiclass.py
+python src/experiments/run_experiment_softmax.py
 
 # Run multi-label experiment (Sigmoid classification head)
-python src/experiments/run_experiment_multilabel.py
+python src/experiments/run_experiment_sigmoid.py
 ```
 
 ### Step 4: Statistical Significance Evaluation
@@ -114,7 +114,7 @@ python src/experiments/run_experiment_multilabel.py
 Compare F1 scores across completed experiment phases to identify statistically significant performance changes:
 
 ```powershell
-python src/evaluation/statistical_test.py
+python src/evaluation/run_statistical_tests.py
 ```
 
 This produces confidence intervals and Wilcoxon pairwise comparison matrices saved in `output/statistical_tests/`.

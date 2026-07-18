@@ -176,7 +176,7 @@ for ecg_id, row in tqdm(
 
     path_100 = os.path.join(
         cfg.DATASET_DIR,
-        "PTB-XL",
+        "PTBXL",
         row['filename_lr']
     )
 
@@ -303,7 +303,7 @@ for ecg_id, row in tqdm(
 
     path_500 = os.path.join(
         cfg.DATASET_DIR,
-        "PTB-XL",
+        "PTBXL",
         row['filename_hr']
     )
 

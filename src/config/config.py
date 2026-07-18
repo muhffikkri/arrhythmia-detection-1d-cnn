@@ -26,13 +26,13 @@ BASE_DIR,
 
 PTBXL_CSV = os.path.join(
 DATASET_DIR,
-"PTB-XL",
+"PTBXL",
 "ptbxl_database.csv"
 )
 
 PTBXL_SCP = os.path.join(
 DATASET_DIR,
-"PTB-XL",
+"PTBXL",
 "scp_statements.csv"
 )
 
