@@ -8,6 +8,8 @@ seaborn
 # tensorflow-gpu==2.10.0
 tensorflow
 scikit-learn
+imbalanced-learn
 PyWavelets
 fastdtw
 neurokit2
+tabulate
