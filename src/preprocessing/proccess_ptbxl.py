@@ -421,21 +421,7 @@ for ecg_id, row in tqdm(
 
             paths["E3_clean"] = e3_clean_path
 
-            # ========================================================
-            # E5 REFERENCE COPY
-            # ========================================================
 
-            e5_reference_path = os.path.join(
-                cfg.SUB_FOLDERS["E5_clean_500_to_250_reference"],
-                base_filename
-            )
-
-            save_numpy(
-                e5_reference_path,
-                e3_clean
-            )
-
-            paths["E5_reference"] = e5_reference_path
 
         except Exception as e:
 
@@ -562,10 +548,7 @@ for ecg_id, row in tqdm(
             paths.get("E4_raw", None),
 
         "path_e4_clean":
-            paths.get("E4_clean", None),
-
-        "path_e5_reference":
-            paths.get("E5_reference", None)
+            paths.get("E4_clean", None)
     })
 
 
