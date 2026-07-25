@@ -1,0 +1,13 @@
+Model: D:\Project\arrhythmia-detection-1d-cnn\models\Pure CNN Softmax Head\softmax_filtered_500to250_lstm\best_model.keras
+Dataset Key: E3_clean_500_to_250 | Split: TEST
+
+              precision    recall  f1-score   support
+
+          AF     0.8361    0.6497    0.7312       157
+ Bradikardia     0.7674    0.5156    0.6168        64
+      Normal     0.9540    0.9820    0.9678      1775
+  Takikardia     0.8333    0.8721    0.8523        86
+
+    accuracy                         0.9380      2082
+   macro avg     0.8477    0.7548    0.7920      2082
+weighted avg     0.9344    0.9380    0.9344      2082
