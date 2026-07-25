@@ -478,8 +478,8 @@ if __name__ == "__main__":
     X_chapman, Y_chapman = load_chapman()
 
     DATASETS = {
-        # "EXP_100HZ_TO_250HZ": load_ptb_dataset("E2_clean_100_to_250"),
-        "EXP_500HZ_TO_250HZ": load_ptb_dataset("E3_clean_500_to_250")
+        key: load_ptb_dataset(key)
+        for key in Config.ACTIVE_DATASETS
     }
 
     FILTER_CONFIGS = Config.FILTER_SPACES

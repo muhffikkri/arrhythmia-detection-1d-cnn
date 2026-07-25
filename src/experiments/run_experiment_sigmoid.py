@@ -54,7 +54,7 @@ os.makedirs(ROOT_EXP_DIR, exist_ok=True)
 # =====================================================================
 # DATA FILTERING & MULTI-HOT MAPPING
 # =====================================================================
-def load_curated_multilabel_dataset():
+def load_curated_multilabel_dataset(folder_key="E2_clean_100_to_250"):
     manifest_path = os.path.join(cfg.RESAMPLE_BASE, "manifest_ptbxl.csv")
     df_manifest = pd.read_csv(manifest_path)
     
@@ -63,12 +63,11 @@ def load_curated_multilabel_dataset():
     X_splits = {"train": [], "val": [], "test": []}
     y_splits = {"train": [], "val": [], "test": []}
     
-    print(f"\n[Data Setup] Curating Multi-Label Dataset for: {ml_cfg.TARGET_CLASSES}")
+    base_folder = cfg.SUB_FOLDERS[folder_key]
+    print(f"\n[Data Setup] Curating Multi-Label Dataset ({folder_key}) for: {ml_cfg.TARGET_CLASSES}")
     for _, row in tqdm(df_filtered.iterrows(), total=len(df_filtered)):
-        file_path = row["path_e2_clean"]
-        if not os.path.exists(file_path):
-            filename = row["filename_npy"]
-            file_path = os.path.join(cfg.SUB_FOLDERS["E2_clean_100_to_250"], filename)
+        filename = row["filename_npy"]
+        file_path = os.path.join(base_folder, filename)
             
         if not os.path.exists(file_path):
             continue
@@ -276,20 +275,21 @@ def run_multilabel_experiment(PTB_DATA, experiment_name, filters, kernels, dilat
 # MAIN LOOP GRID SEARCH
 # =====================================================================
 if __name__ == "__main__":
-    PTB_MULTILABEL_DATA = load_curated_multilabel_dataset()
-    
     FILTER_CONFIGS = Config.FILTER_SPACES
     KERNEL_CONFIGS = Config.KERNEL_SPACES
     DILATION_CONFIGS = Config.DILATION_SPACES
     TEMPORALS = Config.TEMPORAL_MODELS
 
-    for filter_name, filters in FILTER_CONFIGS.items():
-        for kernel_name, kernels in KERNEL_CONFIGS.items():
-            for dilation_name, dilations in DILATION_CONFIGS.items():
-                for temporal_mode in TEMPORALS:
-                    exp_name = f"MULTILABEL_E2__{filter_name}__{kernel_name}__{dilation_name}__{temporal_mode}"
-                    run_multilabel_experiment(
-                        PTB_DATA=PTB_MULTILABEL_DATA, experiment_name=exp_name,
-                        filters=filters, kernels=kernels, dilations=dilations,
-                        temporal_mode=temporal_mode
-                    )
+    for folder_key in Config.ACTIVE_DATASETS:
+        PTB_MULTILABEL_DATA = load_curated_multilabel_dataset(folder_key)
+
+        for filter_name, filters in FILTER_CONFIGS.items():
+            for kernel_name, kernels in KERNEL_CONFIGS.items():
+                for dilation_name, dilations in DILATION_CONFIGS.items():
+                    for temporal_mode in TEMPORALS:
+                        exp_name = f"MULTILABEL_{folder_key}__{filter_name}__{kernel_name}__{dilation_name}__{temporal_mode}"
+                        run_multilabel_experiment(
+                            PTB_DATA=PTB_MULTILABEL_DATA, experiment_name=exp_name,
+                            filters=filters, kernels=kernels, dilations=dilations,
+                            temporal_mode=temporal_mode
+                        )
