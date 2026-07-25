@@ -1,0 +1,121 @@
+# =====================================================================
+# FILE: experiment_configs.py
+# =====================================================================
+
+class Config:
+
+    # =========================================================
+    # INPUT
+    # =========================================================
+
+    INPUT_SHAPE = (2500, 3)
+
+    CLASSES = 4
+
+    # =========================================================
+    # TRAINING
+    # =========================================================
+
+    BATCH_SIZE = 64
+    EPOCHS = 35
+    LEARNING_RATE = 3e-4
+    KFOLD_SPLITS = 5
+    LABEL_SMOOTHING = 0.0
+    USE_MIXUP = False
+    MIXUP_ALPHA = 0.1
+    USE_SEPARABLE_CONV = False
+    USE_AUGMENTATION = False
+    STOCHASTIC_DEPTH_RATE = 0.0
+    COSINE_DECAY_STEPS = 3000
+    COSINE_ALPHA = 1e-2
+    OPTIMIZER = "Adam"
+    USE_COSINE_DECAY = True
+
+    # =========================================================
+    # FOCAL LOSS
+    # =========================================================
+
+    FOCAL_CONFIGS = [
+        {
+            "alpha": 1.0,
+            "gamma": 2.0
+        }
+    ]
+
+    # =========================================================
+    # ACTIVE DATASETS FOR EXPERIMENTS
+    # =========================================================
+    # Options for raw vs cleaned datasets (matching cfg.SUB_FOLDERS):
+    # - Raw Datasets:     "E1_100_native", "E2_100_to_250", "E3_500_to_250", "E4_500_native"
+    # - Cleaned Datasets: "E1_clean_100_native", "E2_clean_100_to_250", "E3_clean_500_to_250", "E4_clean_500_native"
+    ACTIVE_DATASETS = [
+        "E2_clean_100_to_250",
+        "E3_clean_500_to_250",
+        # "E2_100_to_250",      # Raw 100Hz upsampled to 250Hz
+        # "E3_500_to_250",      # Raw 500Hz downsampled to 250Hz
+    ]
+
+    # =========================================================
+    # FILTER SPACES
+    # =========================================================
+
+    FILTER_SPACES = {
+        # "Small": [32, 64, 128, 128, 256],
+        "Medium": [64, 128, 256, 256, 512]
+    }
+
+    # =========================================================
+    # KERNEL SPACES
+    # =========================================================
+
+    KERNEL_SPACES = {
+        "Balanced": [15, 11, 7, 5, 3],
+        # "Balanced_v2": [11, 9, 7, 5, 3],
+        # "Local_Focused": [7, 5, 5, 3, 3],
+        # "Large_Receptive": [21, 15, 11, 7, 5],
+<<<<<<< HEAD:src/experiment_configs.py
+        # "Huge_Receptive": [31, 21, 15, 9, 5]
+        "Hybrid_Morphology": [25, 15, 11, 5, 3]
+=======
+        # "Hybrid_Morphology": [25, 15, 11, 5, 3]
+        # "Huge Receptive": [31, 21, 11, 5, 3]
+>>>>>>> b2cbbf02443c742849184db80d88cc22ab08a6bf:src/config/experiment_configs.py
+    }
+
+    # =========================================================
+    # DILATION
+    # =========================================================
+
+    DILATION_SPACES = {
+        "Progressive_Dilation": [1, 2, 4, 8, 16],
+        # "Compact_Dilation": [1, 1, 2, 2, 4]
+    }
+
+    # =========================================================
+    # TEMPORAL MODELS
+    # =========================================================
+
+    TEMPORAL_MODELS = [
+        "Pure_CNN",
+        # "CNN_BiLSTM",
+        # "CNN_Attention",
+        # "LSTM_Only",
+    ]
+
+    # =========================================================
+    # EXPERIMENT TRACKER
+    # =========================================================
+
+    EXPERIMENT_GROUP = "balanced_baseline"
+
+    MASTER_TRACKER_CSV = (
+        "master_experiment_tracker.csv"
+    )
+
+    SAVE_MISCLASSIFIED = True
+
+    SAVE_CONFUSION_MATRIX = True
+
+    SAVE_HISTORY = True
+
+    SAVE_MODEL_SUMMARY = True

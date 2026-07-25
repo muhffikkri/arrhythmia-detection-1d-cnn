@@ -1,0 +1,11 @@
+              precision    recall  f1-score   support
+
+      Normal       0.98      0.99      0.98      1779
+          AF       0.93      0.88      0.90       157
+  Takikardia       0.86      0.92      0.89        86
+ Bradikardia       0.82      0.56      0.67        64
+
+   micro avg       0.96      0.96      0.96      2086
+   macro avg       0.89      0.84      0.86      2086
+weighted avg       0.96      0.96      0.96      2086
+ samples avg       0.96      0.96      0.96      2086
