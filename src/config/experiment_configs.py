@@ -43,6 +43,19 @@ class Config:
     ]
 
     # =========================================================
+    # ACTIVE DATASETS FOR EXPERIMENTS
+    # =========================================================
+    # Options for raw vs cleaned datasets (matching cfg.SUB_FOLDERS):
+    # - Raw Datasets:     "E1_100_native", "E2_100_to_250", "E3_500_to_250", "E4_500_native"
+    # - Cleaned Datasets: "E1_clean_100_native", "E2_clean_100_to_250", "E3_clean_500_to_250", "E4_clean_500_native"
+    ACTIVE_DATASETS = [
+        "E2_clean_100_to_250",
+        "E3_clean_500_to_250",
+        # "E2_100_to_250",      # Raw 100Hz upsampled to 250Hz
+        # "E3_500_to_250",      # Raw 500Hz downsampled to 250Hz
+    ]
+
+    # =========================================================
     # FILTER SPACES
     # =========================================================
 
@@ -80,7 +93,8 @@ class Config:
     TEMPORAL_MODELS = [
         "Pure_CNN",
         # "CNN_BiLSTM",
-        # "CNN_Attention"
+        # "CNN_Attention",
+        # "LSTM_Only",
     ]
 
     # =========================================================

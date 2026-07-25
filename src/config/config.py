@@ -134,11 +134,10 @@ for folder_path in SUB_FOLDERS.values():
 # =========================================================
 
 CLASS_NAMES = [
-'Normal',
-'AF',
-'Takikardia',
-'Bradikardia',
-# 'Others'
+    'AF',
+    'Bradikardia',
+    'Normal',
+    'Takikardia',
 ]
 
 # =========================================================
