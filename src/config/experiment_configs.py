@@ -73,13 +73,8 @@ class Config:
         # "Balanced_v2": [11, 9, 7, 5, 3],
         # "Local_Focused": [7, 5, 5, 3, 3],
         # "Large_Receptive": [21, 15, 11, 7, 5],
-<<<<<<< HEAD:src/experiment_configs.py
         # "Huge_Receptive": [31, 21, 15, 9, 5]
         "Hybrid_Morphology": [25, 15, 11, 5, 3]
-=======
-        # "Hybrid_Morphology": [25, 15, 11, 5, 3]
-        # "Huge Receptive": [31, 21, 11, 5, 3]
->>>>>>> b2cbbf02443c742849184db80d88cc22ab08a6bf:src/config/experiment_configs.py
     }
 
     # =========================================================
