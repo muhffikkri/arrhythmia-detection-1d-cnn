@@ -19,6 +19,7 @@ from src.config import config_labels as ml_cfg
 # =====================================================================
 # STOCHASTIC DEPTH
 # =====================================================================
+@tf.keras.utils.register_keras_serializable(package="model_factory")
 class StochasticDepth(layers.Layer):
     """
     Residual branch dropping.
@@ -36,6 +37,13 @@ class StochasticDepth(layers.Layer):
             )
             x = (binary_tensor * x) / self.survival_probability
         return x + residual
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "survival_probability": self.survival_probability,
+        })
+        return config
 
 # =====================================================================
 # SQUEEZE-AND-EXCITATION (SE BLOCK)
@@ -203,25 +211,20 @@ def build_dynamic_cnn(
     inputs = layers.Input(shape=Config.INPUT_SHAPE)
     x = inputs
 
-    # CNN Backbone (Spatial Encoder + SE Attention Loops)
-    for i, (f, k, d) in enumerate(zip(filters, kernels, dilations)):
-        current_sd_rate = stochastic_depth_rate * (i + 1) / len(filters)
-
-        x = residual_conv_block(
-            x=x,
-            filters=f,
-            kernel_size=k,
-            dilation_rate=d,
-            dropout_rate=0.15,
-            use_separable=use_separable,
-            stochastic_depth_rate=current_sd_rate
-        )
-
-        if i < 3:
-            x = layers.MaxPooling1D(pool_size=2, strides=2, padding='same')(x)
-
-    # Temporal Modeling
-    if temporal_mode == "CNN_BiLSTM":
+    # CNN Backbone or Pure Recurrent Encoder
+    if temporal_mode in ["LSTM_Only", "Pure_LSTM"]:
+        # Pure Recurrent Model (without CNN spatial residual backbone)
+        # Apply light temporal pooling for sequence length efficiency (2500 -> 312 timesteps)
+        x = layers.MaxPooling1D(pool_size=8, strides=8, padding='same')(inputs)
+        x = layers.Bidirectional(
+            layers.LSTM(
+                128,
+                return_sequences=True,
+                dropout=0.20,
+                recurrent_dropout=0.10
+            )
+        )(x)
+        x = layers.LayerNormalization()(x)
         x = layers.Bidirectional(
             layers.LSTM(
                 64,
@@ -232,14 +235,44 @@ def build_dynamic_cnn(
         )(x)
         x = layers.LayerNormalization()(x)
 
-    elif temporal_mode == "CNN_Attention":
-        attn_out = layers.MultiHeadAttention(
-            num_heads=4,
-            key_dim=32,
-            dropout=0.20
-        )(x, x)
-        x = layers.Add()([x, attn_out])
-        x = layers.LayerNormalization()(x)
+    else:
+        # CNN Backbone (Spatial Encoder + SE Attention Loops)
+        for i, (f, k, d) in enumerate(zip(filters, kernels, dilations)):
+            current_sd_rate = stochastic_depth_rate * (i + 1) / len(filters)
+
+            x = residual_conv_block(
+                x=x,
+                filters=f,
+                kernel_size=k,
+                dilation_rate=d,
+                dropout_rate=0.15,
+                use_separable=use_separable,
+                stochastic_depth_rate=current_sd_rate
+            )
+
+            if i < 3:
+                x = layers.MaxPooling1D(pool_size=2, strides=2, padding='same')(x)
+
+        # Temporal Modeling
+        if temporal_mode == "CNN_BiLSTM":
+            x = layers.Bidirectional(
+                layers.LSTM(
+                    64,
+                    return_sequences=True,
+                    dropout=0.20,
+                    recurrent_dropout=0.10
+                )
+            )(x)
+            x = layers.LayerNormalization()(x)
+
+        elif temporal_mode == "CNN_Attention":
+            attn_out = layers.MultiHeadAttention(
+                num_heads=4,
+                key_dim=32,
+                dropout=0.20
+            )(x, x)
+            x = layers.Add()([x, attn_out])
+            x = layers.LayerNormalization()(x)
 
     # Classification Head (Transisi Mutlak ke Multi-Label)
     x = layers.GlobalAveragePooling1D()(x)
