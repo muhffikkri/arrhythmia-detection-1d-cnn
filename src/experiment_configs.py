@@ -60,8 +60,8 @@ class Config:
         # "Balanced_v2": [11, 9, 7, 5, 3],
         # "Local_Focused": [7, 5, 5, 3, 3],
         # "Large_Receptive": [21, 15, 11, 7, 5],
-        "Huge_Receptive": [31, 21, 15, 9, 5]
-        # "Hybrid_Morphology": [25, 15, 11, 5, 3]
+        # "Huge_Receptive": [31, 21, 15, 9, 5]
+        "Hybrid_Morphology": [25, 15, 11, 5, 3]
     }
 
     # =========================================================
