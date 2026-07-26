@@ -311,8 +311,8 @@ def train_model(
 
 def run_experiment(
     PTB_DATA,
-    X_chapman,
-    Y_chapman,
+    # X_chapman,
+    # Y_chapman,
     experiment_name,
     filters,
     kernels,
@@ -342,21 +342,38 @@ def run_experiment(
         "label_smoothing": Config.LABEL_SMOOTHING,
         "use_augmentation": Config.USE_AUGMENTATION,
         "mixup_alpha": Config.MIXUP_ALPHA,
-        "optimizer": Config.OPTIMIZER
+        "optimizer": Config.OPTIMIZER,
+        "undersample_ratio": Config.UNDERSAMPLE_RATIO if hasattr(Config, "UNDERSAMPLE_RATIO") else None
     }
 
     save_experiment_config(config_dict, exp_dir)
-    class_weights = build_class_weights(PTB_DATA["y_train"])
+
+    # Apply undersampling on training split if configured
+    X_train_res = PTB_DATA["X_train"]
+    y_train_res = PTB_DATA["y_train"]
+
+    if hasattr(Config, "UNDERSAMPLE_RATIO") and Config.UNDERSAMPLE_RATIO is not None:
+        from src.training.data_utils import undersample_training_data
+        X_train_res, y_train_res = undersample_training_data(
+            X_train=X_train_res,
+            y_train=y_train_res,
+            ratio=Config.UNDERSAMPLE_RATIO,
+            class_names=cfg.CLASS_NAMES,
+            random_state=42
+        )
+
+    class_weights = build_class_weights(y_train_res)
 
     train_ds = create_tf_dataset(
-        PTB_DATA["X_train"],
-        PTB_DATA["y_train"],
+        X_train_res,
+        y_train_res,
         batch_size=Config.BATCH_SIZE,
         is_training=True,
         use_augmentation=Config.USE_AUGMENTATION,
         use_mixup=Config.USE_MIXUP,
         mixup_alpha=Config.MIXUP_ALPHA
     )
+
 
     val_ds = create_tf_dataset(
         PTB_DATA["X_val"],
@@ -397,6 +414,8 @@ def run_experiment(
 
     metrics["Total_Params"] = total_params
     metrics["Model_Size_MB"] = model_size
+    metrics["Undersample_Ratio"] = str(Config.UNDERSAMPLE_RATIO) if (hasattr(Config, "UNDERSAMPLE_RATIO") and Config.UNDERSAMPLE_RATIO is not None) else "None"
+
 
     # # 2. Ambil metrik hardware untuk pembuktian edge-computing PKM
     # hw_metrics = evaluate_hardware_efficiency(model, X_test_eval, experiment_name)
@@ -475,7 +494,7 @@ if __name__ == "__main__":
     print("LOADING DATASETS")
     print("="*80)
 
-    X_chapman, Y_chapman = load_chapman()
+    # X_chapman, Y_chapman = load_chapman()
 
     DATASETS = {
         key: load_ptb_dataset(key)
@@ -499,11 +518,13 @@ if __name__ == "__main__":
                             f"__{dilation_name}"
                             f"__{temporal_mode}"
                         )
+                        if hasattr(Config, "UNDERSAMPLE_RATIO") and Config.UNDERSAMPLE_RATIO is not None:
+                            exp_name += f"__us_{Config.UNDERSAMPLE_RATIO}"
 
                         run_experiment(
                             PTB_DATA=dataset_data,
-                            X_chapman=X_chapman,
-                            Y_chapman=Y_chapman,
+                            # X_chapman=X_chapman,
+                            # Y_chapman=Y_chapman,
                             experiment_name=exp_name,
                             filters=filters,
                             kernels=kernels,

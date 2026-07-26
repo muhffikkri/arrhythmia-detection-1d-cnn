@@ -114,3 +114,12 @@ class Config:
     SAVE_HISTORY = True
 
     SAVE_MODEL_SUMMARY = True
+
+    # =========================================================
+    # UNDERSAMPLING
+    # =========================================================
+    # Ratio of Normal (majority class) to Bradikardia (minority class).
+    # None: No undersampling.
+    # 10: Ratio 10:1.
+    # 5: Ratio 5:1.
+    UNDERSAMPLE_RATIO = 10

@@ -184,7 +184,8 @@ def run_multilabel_experiment(PTB_DATA, experiment_name, filters, kernels, dilat
     config_dict = {
         "experiment_name": experiment_name, "filters": filters, "kernels": kernels,
         "dilations": dilations, "temporal_mode": temporal_mode, "batch_size": Config.BATCH_SIZE,
-        "epochs": Config.EPOCHS, "learning_rate": Config.LEARNING_RATE, "loss": "BinaryCrossentropy"
+        "epochs": Config.EPOCHS, "learning_rate": Config.LEARNING_RATE, "loss": "BinaryCrossentropy",
+        "undersample_ratio": Config.UNDERSAMPLE_RATIO if hasattr(Config, "UNDERSAMPLE_RATIO") else None
     }
     save_experiment_config(config_dict, exp_dir)
     
@@ -203,8 +204,22 @@ def run_multilabel_experiment(PTB_DATA, experiment_name, filters, kernels, dilat
     model(tf.random.normal((1, Config.INPUT_SHAPE[0], Config.INPUT_SHAPE[1])))
     total_params = model.count_params()
     
+    # Apply undersampling on training split if configured
+    X_train_res = PTB_DATA["X_train"]
+    y_train_res = PTB_DATA["y_train"]
+
+    if hasattr(Config, "UNDERSAMPLE_RATIO") and Config.UNDERSAMPLE_RATIO is not None:
+        from src.training.data_utils import undersample_training_data
+        X_train_res, y_train_res = undersample_training_data(
+            X_train=X_train_res,
+            y_train=y_train_res,
+            ratio=Config.UNDERSAMPLE_RATIO,
+            class_names=ml_cfg.TARGET_CLASSES,
+            random_state=42
+        )
+
     # 3. Training Callbacks & Fit
-    train_ds = create_tf_dataset(PTB_DATA["X_train"], PTB_DATA["y_train"], batch_size=Config.BATCH_SIZE, is_training=True, use_augmentation=Config.USE_AUGMENTATION, use_mixup=Config.USE_MIXUP, mixup_alpha=Config.MIXUP_ALPHA)
+    train_ds = create_tf_dataset(X_train_res, y_train_res, batch_size=Config.BATCH_SIZE, is_training=True, use_augmentation=Config.USE_AUGMENTATION, use_mixup=Config.USE_MIXUP, mixup_alpha=Config.MIXUP_ALPHA)
     val_ds = create_tf_dataset(PTB_DATA["X_val"], PTB_DATA["y_val"], batch_size=Config.BATCH_SIZE, is_training=False)
     
     model_path = os.path.join(exp_dir, "best_model.keras")
@@ -261,7 +276,13 @@ def run_multilabel_experiment(PTB_DATA, experiment_name, filters, kernels, dilat
     save_multilabel_misclassified_with_confidence(X_test_iso, y_test_iso, y_test_pred_prob, optimized_thresholds, exp_dir)
 
     # 8. EXPORT METRICS CSV
-    final_metrics = {"Experiment": experiment_name, "Total_Params": total_params, "Model_Size_MB": model_size_mb, "Thresholds_Assigned": str(optimized_thresholds)}
+    final_metrics = {
+        "Experiment": experiment_name,
+        "Total_Params": total_params,
+        "Model_Size_MB": model_size_mb,
+        "Thresholds_Assigned": str(optimized_thresholds),
+        "Undersample_Ratio": str(Config.UNDERSAMPLE_RATIO) if (hasattr(Config, "UNDERSAMPLE_RATIO") and Config.UNDERSAMPLE_RATIO is not None) else "None"
+    }
     for i, cls in enumerate(ml_cfg.TARGET_CLASSES):
         final_metrics[f"F1_{cls}"] = float(f1_score(y_test_iso[:, i], y_test_pred_bin[:, i], zero_division=0))
         final_metrics[f"AUC_{cls}"] = float(roc_auc_score(y_test_iso[:, i], y_test_pred_prob[:, i]))
@@ -288,6 +309,8 @@ if __name__ == "__main__":
                 for dilation_name, dilations in DILATION_CONFIGS.items():
                     for temporal_mode in TEMPORALS:
                         exp_name = f"MULTILABEL_{folder_key}__{filter_name}__{kernel_name}__{dilation_name}__{temporal_mode}"
+                        if hasattr(Config, "UNDERSAMPLE_RATIO") and Config.UNDERSAMPLE_RATIO is not None:
+                            exp_name += f"__us_{Config.UNDERSAMPLE_RATIO}"
                         run_multilabel_experiment(
                             PTB_DATA=PTB_MULTILABEL_DATA, experiment_name=exp_name,
                             filters=filters, kernels=kernels, dilations=dilations,
