@@ -17,7 +17,7 @@ class Config:
     # =========================================================
 
     BATCH_SIZE = 64
-    EPOCHS = 35
+    EPOCHS = 1
     LEARNING_RATE = 3e-4
     KFOLD_SPLITS = 5
     LABEL_SMOOTHING = 0.0
@@ -50,9 +50,6 @@ class Config:
     # - Cleaned Datasets: "E1_clean_100_native", "E2_clean_100_to_250", "E3_clean_500_to_250", "E4_clean_500_native"
     ACTIVE_DATASETS = [
         "E2_clean_100_to_250",
-        "E3_clean_500_to_250",
-        # "E2_100_to_250",      # Raw 100Hz upsampled to 250Hz
-        # "E3_500_to_250",      # Raw 500Hz downsampled to 250Hz
     ]
 
     # =========================================================
@@ -115,11 +112,23 @@ class Config:
 
     SAVE_MODEL_SUMMARY = True
 
-    # =========================================================
-    # UNDERSAMPLING
-    # =========================================================
-    # Ratio of Normal (majority class) to Bradikardia (minority class).
-    # None: No undersampling.
-    # 10: Ratio 10:1.
-    # 5: Ratio 5:1.
     UNDERSAMPLE_RATIO = 10
+
+    # =========================================================
+    # OVERSAMPLING
+    # =========================================================
+    # Method of oversampling:
+    # - None: No oversampling.
+    # - "smote": Use SMOTE oversampling.
+    # - "smote_tomek": Use SMOTE-Tomek oversampling.
+    OVERSAMPLE_METHOD = "smote"
+
+    # Strategy for oversampling.
+    # Can be 'auto', float, or dictionary.
+    # We use class name strings to avoid index order differences.
+    # Set minority classes to 3000 or 5000:
+    OVERSAMPLE_STRATEGY = {
+        "AF": 3000,
+        "Bradikardia": 3000,
+        "Takikardia": 3000
+    }

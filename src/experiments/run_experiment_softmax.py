@@ -343,7 +343,9 @@ def run_experiment(
         "use_augmentation": Config.USE_AUGMENTATION,
         "mixup_alpha": Config.MIXUP_ALPHA,
         "optimizer": Config.OPTIMIZER,
-        "undersample_ratio": Config.UNDERSAMPLE_RATIO if hasattr(Config, "UNDERSAMPLE_RATIO") else None
+        "undersample_ratio": Config.UNDERSAMPLE_RATIO if hasattr(Config, "UNDERSAMPLE_RATIO") else None,
+        "oversample_method": Config.OVERSAMPLE_METHOD if hasattr(Config, "OVERSAMPLE_METHOD") else None,
+        "oversample_strategy": str(Config.OVERSAMPLE_STRATEGY) if hasattr(Config, "OVERSAMPLE_STRATEGY") else None
     }
 
     save_experiment_config(config_dict, exp_dir)
@@ -361,6 +363,24 @@ def run_experiment(
             class_names=cfg.CLASS_NAMES,
             random_state=42
         )
+
+    # Apply oversampling on training split if configured
+    if hasattr(Config, "OVERSAMPLE_METHOD") and Config.OVERSAMPLE_METHOD is not None:
+        from src.training.data_utils import apply_smote_tomek
+        strategy = getattr(Config, "OVERSAMPLE_STRATEGY", "auto")
+        X_train_res, y_train_res = apply_smote_tomek(
+            X_train=X_train_res,
+            y_train=y_train_res,
+            method=Config.OVERSAMPLE_METHOD,
+            sampling_strategy=strategy,
+            class_names=cfg.CLASS_NAMES
+        )
+        
+        # Print oversampled training distribution
+        new_labels = np.argmax(y_train_res, axis=1)
+        unique_classes, counts = np.unique(new_labels, return_counts=True)
+        dist = {cfg.CLASS_NAMES[cls]: count for cls, count in zip(unique_classes, counts)}
+        print(f" -> Oversampled training distribution: {dist}")
 
     class_weights = build_class_weights(y_train_res)
 
@@ -415,6 +435,8 @@ def run_experiment(
     metrics["Total_Params"] = total_params
     metrics["Model_Size_MB"] = model_size
     metrics["Undersample_Ratio"] = str(Config.UNDERSAMPLE_RATIO) if (hasattr(Config, "UNDERSAMPLE_RATIO") and Config.UNDERSAMPLE_RATIO is not None) else "None"
+    metrics["Oversample_Method"] = str(Config.OVERSAMPLE_METHOD) if (hasattr(Config, "OVERSAMPLE_METHOD") and Config.OVERSAMPLE_METHOD is not None) else "None"
+    metrics["Oversample_Strategy"] = str(Config.OVERSAMPLE_STRATEGY) if (hasattr(Config, "OVERSAMPLE_STRATEGY") and Config.OVERSAMPLE_STRATEGY is not None) else "None"
 
 
     # # 2. Ambil metrik hardware untuk pembuktian edge-computing PKM
