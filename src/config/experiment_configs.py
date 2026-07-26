@@ -17,7 +17,7 @@ class Config:
     # =========================================================
 
     BATCH_SIZE = 64
-    EPOCHS = 1
+    EPOCHS = 35
     LEARNING_RATE = 3e-4
     KFOLD_SPLITS = 5
     LABEL_SMOOTHING = 0.0
@@ -50,6 +50,9 @@ class Config:
     # - Cleaned Datasets: "E1_clean_100_native", "E2_clean_100_to_250", "E3_clean_500_to_250", "E4_clean_500_native"
     ACTIVE_DATASETS = [
         "E2_clean_100_to_250",
+        "E3_clean_500_to_250",
+        # "E2_100_to_250",      # Raw 100Hz upsampled to 250Hz
+        # "E3_500_to_250",      # Raw 500Hz downsampled to 250Hz
     ]
 
     # =========================================================
@@ -71,7 +74,7 @@ class Config:
         # "Local_Focused": [7, 5, 5, 3, 3],
         # "Large_Receptive": [21, 15, 11, 7, 5],
         # "Huge_Receptive": [31, 21, 15, 9, 5]
-        "Hybrid_Morphology": [25, 15, 11, 5, 3]
+        # "Hybrid_Morphology": [25, 15, 11, 5, 3]
     }
 
     # =========================================================
@@ -121,7 +124,7 @@ class Config:
     # - None: No oversampling.
     # - "smote": Use SMOTE oversampling.
     # - "smote_tomek": Use SMOTE-Tomek oversampling.
-    OVERSAMPLE_METHOD = "smote"
+    OVERSAMPLE_METHOD = "smote_tomek"
 
     # Strategy for oversampling.
     # Can be 'auto', float, or dictionary.
