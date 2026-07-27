@@ -205,10 +205,12 @@ def balance_minority_classes(
 def apply_smote_tomek(
     X_train,
     y_train,
-    method='smote_tomek'
+    method='smote_tomek',
+    sampling_strategy='auto',
+    class_names=None
     ):
     print(
-        f"\n[WARNING] Experimental {method.upper()}"
+        f"\n[WARNING] Experimental {method.upper()} with strategy: {sampling_strategy}"
     )
 
     samples, seq_len, leads = X_train.shape
@@ -223,15 +225,49 @@ def apply_smote_tomek(
         axis=1
     )
 
+    num_classes = y_train.shape[1]
+
+    # Resolve sampling_strategy mapping & filter out classes that cannot be oversampled
+    resolved_strategy = 'auto'
+    if isinstance(sampling_strategy, dict):
+        # Calculate current counts to prevent downsampling errors with SMOTE
+        current_counts = np.bincount(y_labels, minlength=num_classes)
+        resolved_strategy = {}
+        for k, v in sampling_strategy.items():
+            class_idx = None
+            if isinstance(k, str):
+                if class_names is not None and k in class_names:
+                    class_idx = class_names.index(k)
+            else:
+                class_idx = int(k)
+
+            if class_idx is not None and 0 <= class_idx < num_classes:
+                current_size = current_counts[class_idx]
+                if v > current_size:
+                    resolved_strategy[class_idx] = v
+                else:
+                    class_name_str = class_names[class_idx] if class_names else str(class_idx)
+                    print(f" -> [Oversampling Info] Skipping class '{class_name_str}' because target count {v} is <= current count {current_size}.")
+            else:
+                print(f" -> [Oversampling Warning] Skipping invalid class key: {k}")
+
+        if not resolved_strategy:
+            print(" -> [Oversampling Info] No classes to oversample under the specified strategy. Returning original data.")
+            return X_train, y_train
+    elif sampling_strategy is not None:
+        resolved_strategy = sampling_strategy
+
     if method == 'smote':
 
         balancer = SMOTE(
+            sampling_strategy=resolved_strategy,
             random_state=42
         )
 
     elif method == 'smote_tomek':
 
         balancer = SMOTETomek(
+            sampling_strategy=resolved_strategy,
             random_state=42
         )
 
@@ -252,7 +288,7 @@ def apply_smote_tomek(
 
     y_balanced = tf.keras.utils.to_categorical(
         y_bal_labels,
-        num_classes=NUM_CLASSES
+        num_classes=num_classes
     ).astype(np.float32)
 
     return X_balanced, y_balanced
@@ -484,3 +520,61 @@ def print_dataset_distribution(
             f"{cnt} samples "
             f"({ratio:.4f})"
         )
+
+# =====================================================================
+# MAJORITY CLASS UNDERSAMPLING
+# =====================================================================
+
+def undersample_training_data(X_train, y_train, ratio, class_names, random_state=42):
+    """
+    Undersamples the 'Normal' class in training data so that the ratio
+    between 'Normal' and 'Bradikardia' matches target_ratio:1.
+    """
+    np.random.seed(random_state)
+    
+    # y_train is one-hot encoded (or multi-hot), convert to labels via argmax
+    y_labels = np.argmax(y_train, axis=1)
+    
+    # Identify indices
+    normal_idx = class_names.index("Normal")
+    bradikardia_idx = class_names.index("Bradikardia")
+    
+    normal_indices = np.where(y_labels == normal_idx)[0]
+    bradikardia_indices = np.where(y_labels == bradikardia_idx)[0]
+    
+    num_bradikardia = len(bradikardia_indices)
+    target_normal_count = int(num_bradikardia * ratio)
+    
+    print(f"\n[Undersampling] Target Normal:Bradikardia ratio = {ratio}:1")
+    print(f" -> Current Bradikardia count in train split: {num_bradikardia}")
+    print(f" -> Current Normal count in train split: {len(normal_indices)}")
+    print(f" -> Target Normal count in train split: {target_normal_count}")
+    
+    if len(normal_indices) <= target_normal_count:
+        print(" -> Target count exceeds current count. No undersampling performed.")
+        return X_train, y_train
+        
+    # Sample without replacement
+    keep_normal_indices = np.random.choice(
+        normal_indices,
+        size=target_normal_count,
+        replace=False
+    )
+    
+    other_indices = np.where(y_labels != normal_idx)[0]
+    final_indices = np.concatenate([keep_normal_indices, other_indices])
+    
+    # Shuffle to mix samples of different classes
+    np.random.shuffle(final_indices)
+    
+    X_resampled = X_train[final_indices]
+    y_resampled = y_train[final_indices]
+    
+    # Print the resampled training class distribution
+    new_labels = np.argmax(y_resampled, axis=1)
+    unique_classes, counts = np.unique(new_labels, return_counts=True)
+    dist = {class_names[cls]: count for cls, count in zip(unique_classes, counts)}
+    print(f" -> Resampled training distribution: {dist}")
+    
+    return X_resampled, y_resampled
+

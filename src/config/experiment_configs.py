@@ -114,3 +114,24 @@ class Config:
     SAVE_HISTORY = True
 
     SAVE_MODEL_SUMMARY = True
+
+    UNDERSAMPLE_RATIO = 10
+
+    # =========================================================
+    # OVERSAMPLING
+    # =========================================================
+    # Method of oversampling:
+    # - None: No oversampling.
+    # - "smote": Use SMOTE oversampling.
+    # - "smote_tomek": Use SMOTE-Tomek oversampling.
+    OVERSAMPLE_METHOD = "smote_tomek"
+
+    # Strategy for oversampling.
+    # Can be 'auto', float, or dictionary.
+    # We use class name strings to avoid index order differences.
+    # Set minority classes to 3000 or 5000:
+    OVERSAMPLE_STRATEGY = {
+        "AF": 3000,
+        "Bradikardia": 3000,
+        "Takikardia": 3000
+    }
