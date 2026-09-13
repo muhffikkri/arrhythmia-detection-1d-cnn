@@ -63,7 +63,7 @@ def load_chapman_dataset():
     X = []
     y = []
     
-    base_folder = cfg.SUB_FOLDERS["CHAPMAN_CLEAN_250HZ"]
+    base_folder = cfg.SUB_FOLDERS["Chapman_clean_500_to_250"]
     print(f"--> Loading {len(df)} Chapman signals from {base_folder}...")
     
     for _, row in tqdm(df.iterrows(), total=len(df), desc="Loading Chapman"):

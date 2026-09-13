@@ -221,7 +221,7 @@ def load_chapman():
 
     lb = LabelBinarizer()
     lb.fit(cfg.CLASS_NAMES)
-    base_folder = cfg.SUB_FOLDERS["CHAPMAN_CLEAN_250HZ"]
+    base_folder = cfg.SUB_FOLDERS["Chapman_clean_500_to_250"]
 
     print("\nLoading Chapman Dataset")
 

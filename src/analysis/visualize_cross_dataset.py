@@ -42,7 +42,7 @@ for cls in cfg.CLASS_NAMES:
         ptb_filename
     )
         
-    chap_path = os.path.join(cfg.SUB_FOLDERS["CHAPMAN_CLEAN_250HZ"], chap_filename)
+    chap_path = os.path.join(cfg.SUB_FOLDERS["Chapman_clean_500_to_250"], chap_filename)
     
     ptb_sig = np.load(ptb_path)
     chap_sig = np.load(chap_path)
