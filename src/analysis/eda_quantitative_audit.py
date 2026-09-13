@@ -1,7 +1,11 @@
 # =====================================================================
 # FILE: eda_quantitative_audit.py
-# FINAL VERSION — QUANTITATIVE EDA & PREPROCESSING AUDIT
+# CANONICAL — QUANTITATIVE EDA & PREPROCESSING QUALITY AUDIT
 # Compatible with current config.py structure
+#
+# NOTE: this is the single canonical preprocessing-quality audit. It
+# supersedes the former audit_preprocessing.py (deduplicated: same metrics,
+# same plots, but read a non-existent manifest_ptbxl_v5.csv).
 # =====================================================================
 
 import os
