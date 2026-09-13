@@ -13,6 +13,10 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# Windows console default (cp1252) cannot encode emoji/symbols used in prints.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 import numpy as np
 import pandas as pd
 
@@ -117,15 +121,18 @@ ptb_demo.rename(columns={
 
 print("\n--> Extracting Chapman demographics...")
 
-def find_hea_file(file_id):
+# Single walk -> record-id to .hea path lookup (avoids O(N x M) nested walks).
+hea_map = {}
 
-    for root, _, files in os.walk(cfg.CHAPMAN_RECS):
+for root, _, files in os.walk(cfg.CHAPMAN_RECS):
 
-        if f"{file_id}.hea" in files:
-            return os.path.join(root, f"{file_id}.hea")
+    for fname in files:
 
-    return None
+        if fname.endswith(".hea"):
 
+            hea_map[os.path.splitext(fname)[0]] = (
+                os.path.join(root, fname)
+            )
 
 chap_demographics = []
 
@@ -142,7 +149,7 @@ for filename in tqdm(
         ""
     )
 
-    hea_path = find_hea_file(file_id)
+    hea_path = hea_map.get(file_id)
 
     age = np.nan
     sex = "Unknown"
