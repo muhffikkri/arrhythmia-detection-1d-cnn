@@ -1,6 +1,6 @@
 # =====================================================================
 # FILE: run_statistical_tests.py
-# FINAL VERSION — STATISTICAL SIGNIFICANCE ANALYSIS
+# STATISTICAL SIGNIFICANCE ANALYSIS — reads the unified master tracker
 # =====================================================================
 
 import os
@@ -24,6 +24,12 @@ from src.config import config as cfg
 
 warnings.filterwarnings("ignore")
 
+for stream in (sys.stdout, sys.stderr):
+    try:
+        stream.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # =====================================================================
 # OUTPUT DIRECTORY
 # =====================================================================
@@ -36,18 +42,18 @@ STATS_DIR = os.path.join(
 os.makedirs(STATS_DIR, exist_ok=True)
 
 # =====================================================================
-# INPUT CSV
+# INPUT CSV — unified runner tracker
 # =====================================================================
 
 MASTER_CSV = os.path.join(
     cfg.OUTPUT_DIR,
-    "experiments",
-    "master_research_metrics.csv"
+    "research_experiments",
+    "master_experiment_tracker.csv"
 )
 
 if not os.path.exists(MASTER_CSV):
     raise FileNotFoundError(
-        f"master_research_metrics.csv tidak ditemukan:\n{MASTER_CSV}"
+        f"master_experiment_tracker.csv tidak ditemukan:\n{MASTER_CSV}"
     )
 
 # =====================================================================
@@ -60,36 +66,66 @@ print("=" * 80)
 
 df = pd.read_csv(MASTER_CSV)
 
+df = df[
+    df["Experiment"].notna()
+    & df["Experiment"].astype(str).str.strip().ne("")
+].copy()
+
 print(f"\nLoaded Rows : {len(df)}")
 
 # =====================================================================
-# FILTER ONLY PTB-XL INTERNAL RESULTS
+# FILTER ONLY INTERNAL-DATASET RESULTS (Train == Test)
 # =====================================================================
 
-df_internal = df[
-    ~df["Experiment"].str.contains("Chapman", na=False)
-].copy()
+if {"Train_Dataset", "Test_Dataset"}.issubset(df.columns):
+    def is_internal(row):
+        tr = row["Train_Dataset"]
+        te = row["Test_Dataset"]
+        if pd.isna(tr) and pd.isna(te):
+            return True
+        return tr == te
+    df_internal = df[
+        df.apply(is_internal, axis=1)
+    ].copy()
+else:
+    df_internal = df[
+        ~df["Experiment"].str.contains("Chapman", na=False)
+    ].copy()
 
 # =====================================================================
 # DISPLAY AVAILABLE EXPERIMENTS
 # =====================================================================
 
-print("\nAvailable Experiments:")
+print("\nAvailable Internal Experiments:")
 for exp in sorted(df_internal["Experiment"].unique()):
-    print(f" - {exp}")
+    n = int(
+        df_internal["Experiment"].eq(exp).sum()
+    )
+    print(f" - {exp}  (n={n})")
 
 # =====================================================================
 # HELPER
 # =====================================================================
 
+ARCH_SUFFIXES = (
+    "__Pure_CNN",
+    "__CNN_BiLSTM",
+    "__CNN_Attention",
+    "__Pure_LSTM"
+)
+
+
+def strip_architecture(exp_name):
+    for suffix in ARCH_SUFFIXES:
+        if exp_name.endswith(suffix):
+            return exp_name[: -len(suffix)], suffix
+    return exp_name, ""
+
+
 def get_metric_array(df, exp_keyword, metric_name):
 
     rows = df[
-        df["Experiment"].str.contains(
-            exp_keyword,
-            case=False,
-            na=False
-        )
+        df["Experiment"] == exp_keyword
     ]
 
     if len(rows) == 0:
@@ -107,19 +143,12 @@ def get_metric_array(df, exp_keyword, metric_name):
 # =====================================================================
 
 print("\n" + "=" * 80)
-print("CONFIDENCE INTERVAL REPORTS")
+print("CONFIDENCE INTERVAL REPORTS (per experiment, Macro_F1)")
 print("=" * 80)
 
 ci_results = []
 
-TARGET_EXPERIMENTS = [
-    "PHASE1",
-    "PHASE2",
-    "PHASE3",
-    "PHASE4"
-]
-
-for exp in TARGET_EXPERIMENTS:
+for exp in sorted(df_internal["Experiment"].unique()):
 
     try:
 
@@ -138,6 +167,7 @@ for exp in TARGET_EXPERIMENTS:
 
         ci_results.append({
             "Experiment": exp,
+            "N": len(scores),
             "Mean": mean_score,
             "Std": std_score,
             "CI95": ci,
@@ -148,7 +178,6 @@ for exp in TARGET_EXPERIMENTS:
     except Exception as e:
         print(f"\n[WARNING] {exp} skipped -> {e}")
 
-# Save CI results
 ci_df = pd.DataFrame(ci_results)
 
 ci_csv = os.path.join(
@@ -166,94 +195,91 @@ print(f"\n✓ Saved: {ci_csv}")
 
 print("\n" + "=" * 80)
 print("WILCOXON SIGNED-RANK TESTS")
+print("(pairs derived from runs sharing the same base experiment,")
+print(" differing only in the architecture suffix)")
 print("=" * 80)
 
 wilcoxon_results = []
 
-COMPARISONS = [
+exp_counts = df_internal["Experiment"].value_counts()
 
-    # Representation Study
-    (
-        "PHASE1_100to250_clean",
-        "PHASE1_500to250_clean"
-    ),
+base_groups = {}
 
-    # Architecture Study
-    (
-        "PHASE2_Balanced",
-        "PHASE2_Balanced_v2"
-    ),
+for exp in df_internal["Experiment"].unique():
 
-    (
-        "PHASE2_Balanced",
-        "PHASE2_Local_Focused"
-    ),
+    base, arch = strip_architecture(exp)
 
-    # Temporal Modeling
-    (
-        "PHASE3_Pure_CNN",
-        "PHASE3_CNN_BiLSTM"
-    ),
+    if not base:
+        continue
 
-    (
-        "PHASE3_Pure_CNN",
-        "PHASE3_CNN_Attention"
-    ),
+    base_groups.setdefault(base, {})[exp] = int(exp_counts[exp])
 
-    # Data Engineering
-    (
-        "PHASE4_Baseline",
-        "PHASE4_SMOTE_TOMEK_Augmentation"
-    )
-]
+for base, exps in base_groups.items():
 
-for exp_a, exp_b in COMPARISONS:
+    if len(exps) < 2:
+        continue
 
-    try:
+    pairs = []
 
-        scores_a = get_metric_array(
-            df_internal,
-            exp_a,
-            "Macro_F1"
-        )
+    exp_list = sorted(exps.keys())
 
-        scores_b = get_metric_array(
-            df_internal,
-            exp_b,
-            "Macro_F1"
-        )
+    for i in range(len(exp_list)):
+        for j in range(i + 1, len(exp_list)):
+            pairs.append((exp_list[i], exp_list[j]))
 
-        # Proteksi minimum sample
-        min_len = min(
-            len(scores_a),
-            len(scores_b)
-        )
+    for exp_a, exp_b in pairs:
 
-        scores_a = scores_a[:min_len]
-        scores_b = scores_b[:min_len]
+        if exps[exp_a] < 2 or exps[exp_b] < 2:
+            continue
 
-        stat, p_value = run_wilcoxon_test(
-            scores_a,
-            scores_b,
-            metric_name="Macro_F1"
-        )
+        try:
 
-        wilcoxon_results.append({
-            "Experiment_A": exp_a,
-            "Experiment_B": exp_b,
-            "Mean_A": np.mean(scores_a),
-            "Mean_B": np.mean(scores_b),
-            "Wilcoxon_Statistic": stat,
-            "P_Value": p_value,
-            "Significant": p_value < 0.05
-        })
+            scores_a = get_metric_array(
+                df_internal,
+                exp_a,
+                "Macro_F1"
+            )
 
-    except Exception as e:
-        print(f"\n[WARNING] Comparison skipped:")
-        print(f"{exp_a} vs {exp_b}")
-        print(e)
+            scores_b = get_metric_array(
+                df_internal,
+                exp_b,
+                "Macro_F1"
+            )
 
-# Save Wilcoxon
+            min_len = min(
+                len(scores_a),
+                len(scores_b)
+            )
+
+            if min_len < 2:
+                continue
+
+            scores_a = scores_a[:min_len]
+            scores_b = scores_b[:min_len]
+
+            stat, p_value = run_wilcoxon_test(
+                scores_a,
+                scores_b,
+                metric_name="Macro_F1"
+            )
+
+            wilcoxon_results.append({
+                "Base": base,
+                "Experiment_A": exp_a,
+                "Experiment_B": exp_b,
+                "N_Pairs": min_len,
+                "Mean_A": np.mean(scores_a),
+                "Mean_B": np.mean(scores_b),
+                "Wilcoxon_Statistic": stat,
+                "P_Value": p_value,
+                "Significant": p_value < 0.05
+            })
+
+        except Exception as e:
+            print(f"\n[WARNING] Comparison skipped:")
+            print(f"{exp_a} vs {exp_b}")
+            print(e)
+
 wilcoxon_df = pd.DataFrame(
     wilcoxon_results
 )
@@ -285,8 +311,9 @@ for exp in sorted(df_internal["Experiment"].unique()):
     if len(rows) == 0:
         continue
 
-    summary_rows.append({
+    entry = {
         "Experiment": exp,
+        "N": len(rows),
         "Macro_F1_Mean":
             rows["Macro_F1"].mean(),
 
@@ -298,7 +325,13 @@ for exp in sorted(df_internal["Experiment"].unique()):
 
         "Macro_AUROC_Mean":
             rows["Macro_AUROC"].mean()
-    })
+    }
+
+    for col in ["Scheme", "Label_Scheme"]:
+        if col in rows.columns:
+            entry[col] = rows[col].iloc[0]
+
+    summary_rows.append(entry)
 
 summary_df = pd.DataFrame(summary_rows)
 
