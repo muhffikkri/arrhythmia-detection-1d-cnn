@@ -116,9 +116,3 @@ With the unified runner (after the repo restructure):
 #   TRAIN_FOLDER_KEY = "E2_clean_100_to_250"   # or E3_clean_500_to_250
 python -m src.experiments.run_experiment
 ```
-
-Or equivalently with the legacy scripts (still present in git history):
-
-```powershell
-python src/experiments/run_experiment_softmax.py   # multiclass
-```
