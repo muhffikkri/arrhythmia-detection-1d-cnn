@@ -228,13 +228,16 @@ class DatasetLoader:
 
     def build_splits(self):
         """Return {X_train, y_train, X_val, y_val, X_test, y_test} arrays."""
+        train = self._load_split("train")
+        val = self._load_split("val")
+        test = self._load_split("test")
         return {
-            "X_train": self._load_split("train")[0],
-            "y_train": self._load_split("train")[1],
-            "X_val": self._load_split("val")[0],
-            "y_val": self._load_split("val")[1],
-            "X_test": self._load_split("test")[0],
-            "y_test": self._load_split("test")[1],
+            "X_train": train[0],
+            "y_train": train[1],
+            "X_val": val[0],
+            "y_val": val[1],
+            "X_test": test[0],
+            "y_test": test[1],
         }
 
     def build_eval_split(self, split="test"):
