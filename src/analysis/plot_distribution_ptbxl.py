@@ -76,7 +76,7 @@ for ecg_id, row in ptb_db.iterrows():
     elif "Others" in matched:
         target = "Others"
     elif "Normal" in matched:
-        target = "Nonaritmia"
+        target = "Normal"
     else:
         target = "Unmapped"
 
