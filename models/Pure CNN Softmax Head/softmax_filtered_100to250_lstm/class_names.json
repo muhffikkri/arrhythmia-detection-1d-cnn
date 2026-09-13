@@ -1,0 +1,9 @@
+{
+  "class_names": [
+    "AF",
+    "Bradikardia",
+    "Normal",
+    "Takikardia"
+  ],
+  "legacy_order": "AF-first (pre-unification)"
+}

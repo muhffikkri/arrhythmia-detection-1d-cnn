@@ -1,13 +1,27 @@
 # =====================================================================
 # FILE: src/evaluation/cross_dataset_test.py
-# PURPOSE: Cross-dataset validation of all models on Chapman Dataset
+# PURPOSE: Registry-driven, bidirectional cross-dataset evaluation.
 # =====================================================================
+# Evaluates every ACTIVE model in src/config/model_registry.py against the
+# mapped test split of a target dataset.
+#
+# Supported directions (CLI):
+#   PTBXL_to_CHAPMAN  - models evaluated on Chapman test split (zero-shot)
+#   CHAPMAN_to_PTBXL  - models evaluated on PTB-XL test split (zero-shot)
+#   --per-dataset     - additionally PTBXL_to_PTBXL and CHAPMAN_to_CHAPMAN
+#
+# Class ordering is resolved per model (data-driven):
+#   1. experiment_config.json["class_names"]   (new unified runner)
+#   2. class_names.json                         (annotated legacy artifacts)
+#   3. cfg.CLASS_NAMES fallback with a warning
 
 import os
 import gc
 import sys
 import re
+import json
 import warnings
+
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -30,10 +44,10 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# Local imports
 from src.config import config as cfg
-from src.config import config_labels as ml_cfg
+from src.config.model_registry import MODEL_REGISTRY, EVALUATE_ONLY_IDS
 from src.models.model_factory import StochasticDepth
+from src.training.dataset_loader import DatasetLoader
 
 warnings.filterwarnings("ignore")
 
@@ -45,288 +59,270 @@ OUTPUT_DIR = os.path.join(project_root, "output", "cross_dataset_test")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # =====================================================================
-# LOAD CHAPMAN DATASET
+# REGISTRY HELPERS
 # =====================================================================
-def load_chapman_dataset():
-    manifest_path = os.path.join(cfg.RESAMPLE_BASE, "manifest_chapman.csv")
-    if not os.path.exists(manifest_path):
-        raise FileNotFoundError(
-            f"Chapman manifest not found at {manifest_path}. "
-            "Please run 'src/preprocessing/proccess_chapman.py' first."
-        )
 
-    df = pd.read_csv(manifest_path)
-    
-    # Filter to only contain the 4 classes of interest
-    df = df[df["target_class"].isin(cfg.CLASS_NAMES)].reset_index(drop=True)
-    
-    X = []
-    y = []
-    
-    base_folder = cfg.SUB_FOLDERS["Chapman_clean_500_to_250"]
-    print(f"--> Loading {len(df)} Chapman signals from {base_folder}...")
-    
-    for _, row in tqdm(df.iterrows(), total=len(df), desc="Loading Chapman"):
-        file_path = os.path.join(base_folder, row["filename_npy"])
-        if not os.path.exists(file_path):
-            continue
+def active_registry_models():
+    entries = [e for e in MODEL_REGISTRY if e.get("active", True)]
+    if EVALUATE_ONLY_IDS:
+        entries = [e for e in entries if e["id"] in EVALUATE_ONLY_IDS]
+    return entries
+
+
+def resolve_model_file(model_dir):
+    for name in ["best_model_patched.keras", "best_model.keras"]:
+        path = os.path.join(model_dir, name)
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def load_class_names(model_dir):
+    """Data-driven class order for a model (see docstring precedence list)."""
+    config_path = os.path.join(model_dir, "experiment_config.json")
+    meta_path = os.path.join(model_dir, "class_names.json")
+    if os.path.exists(config_path):
         try:
-            signal = np.load(file_path).astype(np.float32)
-            X.append(signal)
-            y.append(row["target_class"])
-        except Exception as e:
-            continue
-            
-    X = np.array(X, dtype=np.float32)
-    print(f"✓ Loaded Chapman dataset successfully. Shape: {X.shape}, labels count: {len(y)}")
-    return X, y
+            with open(config_path, encoding="utf-8") as f:
+                names = json.load(f).get("class_names")
+            if names:
+                return list(names)
+        except (json.JSONDecodeError, OSError):
+            pass
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path, encoding="utf-8") as f:
+                names = json.load(f).get("class_names")
+            if names:
+                return list(names)
+        except (json.JSONDecodeError, OSError):
+            pass
+    print(f"    ! No class_names metadata for {os.path.basename(model_dir)}; "
+          f"falling back to cfg.CLASS_NAMES.")
+    return list(cfg.CLASS_NAMES)
 
-# =====================================================================
-# THRESHOLDS LOADER FOR SIGMOID MODELS
-# =====================================================================
+
 def load_sigmoid_thresholds(model_dir):
-    thresholds = [0.5, 0.5, 0.5, 0.5]
+    thresholds = [0.5] * 4
     metrics_path = os.path.join(model_dir, "metrics.csv")
-    if os.path.exists(metrics_path):
-        try:
-            df_m = pd.read_csv(metrics_path)
-            if "Thresholds_Assigned" in df_m.columns:
-                th_val = df_m["Thresholds_Assigned"].iloc[0]
-                floats = [float(x) for x in re.findall(r"0\.\d+", str(th_val))]
-                if len(floats) == 4:
-                    thresholds = floats
-                    print(f"    -> Loaded assigned thresholds from metrics.csv: {thresholds}")
-        except Exception as e:
-            print(f"    -> Warning: Failed to parse thresholds from metrics.csv: {e}. Using default [0.5, 0.5, 0.5, 0.5].")
-    else:
-        print("    -> No metrics.csv found. Using default thresholds [0.5, 0.5, 0.5, 0.5].")
+    if not os.path.exists(metrics_path):
+        print("    -> No metrics.csv found. Using default thresholds [0.5]*4.")
+        return thresholds
+    try:
+        df_m = pd.read_csv(metrics_path)
+        if "Thresholds_Assigned" in df_m.columns:
+            th_val = df_m["Thresholds_Assigned"].iloc[0]
+            floats = [float(x) for x in re.findall(r"0\.\d+", str(th_val))]
+            if len(floats) == len(thresholds):
+                thresholds = floats
+                print(f"    -> Loaded thresholds from metrics.csv: {thresholds}")
+    except Exception as e:
+        print(f"    -> Warning: failed to parse thresholds: {e}. Using [0.5]*4.")
     return thresholds
 
 # =====================================================================
-# DISCOVER MODELS
+# TARGET DATA
 # =====================================================================
-def discover_models(models_dir):
-    dir_to_model = {}
-    for root, _, files in os.walk(models_dir):
-        for file in files:
-            if file == "best_model.keras":
-                if root not in dir_to_model:
-                    dir_to_model[root] = os.path.join(root, file)
-            elif file == "best_model_patched.keras":
-                # Prioritize patched models if they exist
-                dir_to_model[root] = os.path.join(root, file)
-    return sorted(list(dir_to_model.values()))
+
+def load_target_eval(dataset):
+    print(f"\n[Data] Loading {dataset} mapped test split...")
+    loader = DatasetLoader(dataset=dataset, label_scheme="mapped")
+    X, y_onehot = loader.build_eval_split("test")
+    names = [loader.class_names[idx] for idx in np.argmax(y_onehot, axis=1)]
+    return X, names, loader.class_names
 
 # =====================================================================
-# MAIN RUNNER
+# EVALUATE A SINGLE MODEL ON A TARGET
 # =====================================================================
-def main():
+
+def evaluate_model(model_path, model_type, X, y_true_names, class_names, thresholds):
+    model = tf.keras.models.load_model(
+        model_path,
+        custom_objects={"StochasticDepth": StochasticDepth},
+        compile=False
+    )
+    y_prob = model.predict(X, batch_size=64, verbose=0)
+    del model
+    gc.collect()
+    tf.keras.backend.clear_session()
+
+    # Encode reference labels in the *model's* class order.
+    lb = LabelBinarizer()
+    lb.fit(class_names)
+    y_onehot = lb.transform(y_true_names).astype(np.float32)
+    y_true = np.argmax(y_onehot, axis=1)
+
+    if model_type == "sigmoid":
+        y_bin = np.zeros_like(y_prob)
+        for i in range(len(class_names)):
+            y_bin[:, i] = (y_prob[:, i] >= thresholds[i]).astype(int)
+        acc = accuracy_score(y_onehot, y_bin)
+        rec = recall_score(y_onehot, y_bin, average="macro", zero_division=0)
+        f1 = f1_score(y_onehot, y_bin, average="macro", zero_division=0)
+        rep = classification_report(y_onehot, y_bin, target_names=class_names, zero_division=0)
+        cm_fig = _multilabel_cm_figure(y_onehot, y_bin, class_names, os.path.basename(model_path))
+        return {
+            "Accuracy": acc, "Macro_Recall": rec, "Macro_F1": f1,
+            "Thresholds": str(thresholds), "report": rep, "cm_fig": cm_fig
+        }
+
+    y_pred = np.argmax(y_prob, axis=1)
+    acc = accuracy_score(y_true, y_pred)
+    rec = recall_score(y_true, y_pred, average="macro", zero_division=0)
+    f1 = f1_score(y_true, y_pred, average="macro", zero_division=0)
+    rep = classification_report(y_true, y_pred, target_names=class_names, digits=4, zero_division=0)
+    cm = confusion_matrix(y_true, y_pred)
+    fig, ax = plt.subplots(figsize=(8, 8))
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
+    disp.plot(ax=ax, xticks_rotation=45, colorbar=False, cmap=plt.cm.Blues)
+    plt.tight_layout()
+    return {
+        "Accuracy": acc, "Macro_Recall": rec, "Macro_F1": f1,
+        "Thresholds": "N/A", "report": rep, "cm_fig": fig
+    }
+
+
+def _multilabel_cm_figure(y_true, y_bin, class_names, title):
+    mcm = multilabel_confusion_matrix(y_true, y_bin)
+    n = len(class_names)
+    rows = int(np.ceil(n / 2))
+    fig, axes = plt.subplots(rows, 2, figsize=(10, 5 * rows))
+    axes = np.atleast_1d(np.array(axes).reshape(-1))
+    for i, class_name in enumerate(class_names):
+        ax = axes[i]
+        cm = mcm[i]
+        ax.matshow(cm, cmap=plt.cm.Blues, alpha=0.3)
+        for g_i in range(cm.shape[0]):
+            for g_j in range(cm.shape[1]):
+                ax.text(x=g_j, y=g_i, s=cm[g_i, g_j], va="center", ha="center",
+                        fontsize=12, fontweight="bold")
+        ax.set_title(f"CM Biner: {class_name}", fontweight="bold")
+        ax.set_xticklabels(["", "Neg", "Pos"])
+        ax.set_yticklabels(["", "Neg", "Pos"])
+    fig.suptitle(f"Multilabel Confusion Matrix - {os.path.basename(title)}", fontweight="bold", y=0.98)
+    plt.tight_layout()
+    return fig
+
+# =====================================================================
+# DIRECTION RUNNER
+# =====================================================================
+
+def run_direction(direction, per_dataset=False):
+    DIRECTIONS = {
+        "PTBXL_to_CHAPMAN": ("PTBXL", "CHAPMAN"),
+        "CHAPMAN_to_PTBXL": ("CHAPMAN", "PTBXL"),
+        "PTBXL_to_PTBXL": ("PTBXL", "PTBXL"),
+        "CHAPMAN_to_CHAPMAN": ("CHAPMAN", "CHAPMAN"),
+    }
+    if direction not in DIRECTIONS:
+        raise ValueError(f"Unknown direction '{direction}'.")
+
+    _, target = DIRECTIONS[direction]
+    print("\n" + "=" * 80)
+    print(f"DIRECTION: {direction}")
     print("=" * 80)
-    print("STARTING CROSS DATASET TEST ON CHAPMAN DATASET")
-    print("=" * 80)
 
-    # 1. Load Chapman Dataset
-    try:
-        X_chapman, y_chapman = load_chapman_dataset()
-    except Exception as e:
-        print(f"Error loading dataset: {e}")
-        sys.exit(1)
+    X, y, class_names = load_target_eval(target)
+    entries = active_registry_models()
+    if not entries:
+        print("[WARN] No models match the registry filter. Nothing to evaluate.")
+        return
 
-    # 2. Discover Models
-    model_paths = discover_models(MODELS_DIR)
-    print(f"--> Discovered {len(model_paths)} models for evaluation:")
-    for mp in model_paths:
-        print(f"  - {os.path.relpath(mp, MODELS_DIR)}")
-
-    if not model_paths:
-        print("No models found in the models directory.")
-        sys.exit(0)
-
+    out_dir = os.path.join(OUTPUT_DIR, direction)
+    os.makedirs(out_dir, exist_ok=True)
     summary_records = []
 
-    # 3. Evaluate each model
-    for idx, model_path in enumerate(model_paths):
-        rel_path = os.path.relpath(os.path.dirname(model_path), MODELS_DIR)
-        model_name = rel_path.replace(os.sep, "__").replace(" ", "_")
-        model_output_dir = os.path.join(OUTPUT_DIR, model_name)
-        os.makedirs(model_output_dir, exist_ok=True)
-
-        print("\n" + "-" * 80)
-        print(f"Evaluating Model [{idx + 1}/{len(model_paths)}]: {rel_path}")
-        print("-" * 80)
-
-        # Load Keras Model
-        try:
-            model = tf.keras.models.load_model(
-                model_path,
-                custom_objects={'StochasticDepth': StochasticDepth},
-                compile=False
-            )
-        except Exception as e:
-            print(f"Error loading model {model_path}: {e}")
+    for idx, entry in enumerate(entries):
+        model_dir = os.path.join(MODELS_DIR, entry["path"])
+        model_file = resolve_model_file(model_dir)
+        if model_file is None:
+            print(f"  [Skip] No checkpoint found in {model_dir}")
             continue
 
-        # Determine Model Head Type (Softmax vs Sigmoid)
-        last_layer = model.layers[-1]
-        activation_name = None
-        if hasattr(last_layer, 'activation') and last_layer.activation is not None:
-            activation_name = last_layer.activation.__name__
+        print(f"\n[{idx + 1}/{len(entries)}] {entry['id']} ({entry['type']})")
+        model_class_names = load_class_names(model_dir)
+        print(f"    Class order: {model_class_names}")
 
-        is_sigmoid = False
-        if activation_name == 'sigmoid':
-            is_sigmoid = True
-        elif activation_name == 'softmax':
-            is_sigmoid = False
-        else:
-            # Fallback to checking the folder path
-            if "Sigmoid" in model_path or "multilabel" in model_path:
-                is_sigmoid = True
-
-        print(f"Detected Model Type: {'Sigmoid (Multilabel)' if is_sigmoid else 'Softmax (Multiclass)'} (activation={activation_name})")
-
-        # Run Predictions
-        print("Running inference...")
-        try:
-            y_pred_prob = model.predict(X_chapman, batch_size=64, verbose=1)
-        except Exception as e:
-            print(f"Error running inference for {model_name}: {e}")
-            # Clean up
-            del model
-            tf.keras.backend.clear_session()
-            gc.collect()
+        if len(model_class_names) != len(class_names):
+            print(f"    [Skip] class-count mismatch ({len(model_class_names)} vs {len(class_names)}).")
             continue
 
-        # Evaluate and save based on model type
-        if not is_sigmoid:
-            # ==========================================
-            # SOFTMAX MULTICLASS
-            # ==========================================
-            lb = LabelBinarizer()
-            lb.fit(cfg.CLASS_NAMES)
-            y_true_onehot = lb.transform(y_chapman)
-            y_true_labels = np.argmax(y_true_onehot, axis=1)
-            y_pred_labels = np.argmax(y_pred_prob, axis=1)
-
-            # Metrics
-            acc = accuracy_score(y_true_labels, y_pred_labels)
-            rec = recall_score(y_true_labels, y_pred_labels, average='macro', zero_division=0)
-            f1 = f1_score(y_true_labels, y_pred_labels, average='macro', zero_division=0)
-
-            print(f"Results - Accuracy: {acc:.4f} | Recall: {rec:.4f} | F1-Score: {f1:.4f}")
-
-            # Classification Report
-            rep_str = classification_report(
-                y_true_labels,
-                y_pred_labels,
-                target_names=cfg.CLASS_NAMES,
-                digits=4,
-                zero_division=0
+        thresholds = load_sigmoid_thresholds(model_dir) if entry["type"] == "sigmoid" else None
+        try:
+            result = evaluate_model(
+                model_file,
+                entry["type"],
+                X,
+                y,
+                model_class_names,
+                thresholds
             )
+        except Exception as e:
+            print(f"    [Error] {e}")
+            continue
 
-            # Confusion Matrix Plot
-            cm = confusion_matrix(y_true_labels, y_pred_labels)
-            fig, ax = plt.subplots(figsize=(8, 8))
-            disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=cfg.CLASS_NAMES)
-            disp.plot(ax=ax, xticks_rotation=45, colorbar=False, cmap=plt.cm.Blues)
-            plt.title(f"Confusion Matrix (Softmax)\n{rel_path}", fontweight='bold')
-            plt.tight_layout()
-            plt.savefig(os.path.join(model_output_dir, "confusion_matrix.png"), dpi=150)
-            plt.close()
+        model_out = os.path.join(out_dir, entry["id"].replace(os.sep, "__"))
+        os.makedirs(model_out, exist_ok=True)
 
-            summary_records.append({
-                "Model_Dir": rel_path,
-                "Model_Name": model_name,
-                "Model_Type": "Softmax",
-                "Accuracy": acc,
-                "Recall": rec,
-                "F1_Score": f1,
-                "Thresholds": "N/A"
-            })
+        with open(os.path.join(model_out, "classification_report.txt"), "w", encoding="utf-8") as f:
+            f.write(result["report"])
+        result["cm_fig"].savefig(os.path.join(model_out, "confusion_matrix.png"), dpi=150)
+        plt.close(result["cm_fig"])
 
-        else:
-            # ==========================================
-            # SIGMOID MULTILABEL
-            # ==========================================
-            # Binarize targets in Sigmoid target ordering
-            y_true_onehot = np.zeros((len(y_chapman), len(ml_cfg.TARGET_CLASSES)), dtype=np.float32)
-            for i, name in enumerate(y_chapman):
-                class_idx = ml_cfg.TARGET_CLASSES.index(name)
-                y_true_onehot[i, class_idx] = 1.0
+        summary_records.append({
+            "Direction": direction,
+            "Model_Id": entry["id"],
+            "Model_Name": entry["name"],
+            "Model_Type": entry["type"],
+            "Accuracy": result["Accuracy"],
+            "Macro_Recall": result["Macro_Recall"],
+            "Macro_F1": result["Macro_F1"],
+            "Thresholds": result["Thresholds"]
+        })
+        print(f"    ACC={result['Accuracy']:.4f} REC={result['Macro_Recall']:.4f} "
+              f"F1={result['Macro_F1']:.4f}")
 
-            thresholds = load_sigmoid_thresholds(os.path.dirname(model_path))
-            
-            y_pred_bin = np.zeros_like(y_pred_prob)
-            for i in range(4):
-                y_pred_bin[:, i] = (y_pred_prob[:, i] >= thresholds[i]).astype(int)
-
-            # Metrics
-            # Subset accuracy (exact match)
-            acc = accuracy_score(y_true_onehot, y_pred_bin)
-            rec = recall_score(y_true_onehot, y_pred_bin, average='macro', zero_division=0)
-            f1 = f1_score(y_true_onehot, y_pred_bin, average='macro', zero_division=0)
-
-            # Mean binary accuracy (optional helper metric)
-            mean_bin_acc = np.mean([accuracy_score(y_true_onehot[:, i], y_pred_bin[:, i]) for i in range(4)])
-            print(f"Results - Subset Acc: {acc:.4f} (Mean Bin Acc: {mean_bin_acc:.4f}) | Recall: {rec:.4f} | F1-Score: {f1:.4f}")
-
-            # Classification Report
-            rep_str = classification_report(
-                y_true_onehot,
-                y_pred_bin,
-                target_names=ml_cfg.TARGET_CLASSES,
-                digits=4,
-                zero_division=0
-            )
-
-            # Confusion Matrix Plot (2x2 binary grids)
-            mcm = multilabel_confusion_matrix(y_true_onehot, y_pred_bin)
-            fig, axes = plt.subplots(2, 2, figsize=(10, 10))
-            for i, class_name in enumerate(ml_cfg.TARGET_CLASSES):
-                ax = axes[i // 2, i % 2]
-                cm_bin = mcm[i]
-                ax.matshow(cm_bin, cmap=plt.cm.Blues, alpha=0.3)
-                for g_i in range(cm_bin.shape[0]):
-                    for g_j in range(cm_bin.shape[1]):
-                        ax.text(x=g_j, y=g_i, s=cm_bin[g_i, g_j], va='center', ha='center', fontsize=12, fontweight='bold')
-                ax.set_title(f"CM Biner: {class_name}", fontweight='bold')
-                ax.set_xticklabels(['', 'Neg', 'Pos'])
-                ax.set_yticklabels(['', 'Neg', 'Pos'])
-            plt.suptitle(f"Multilabel Confusion Matrix\n{rel_path}", fontweight='bold', y=0.98)
-            plt.tight_layout()
-            plt.savefig(os.path.join(model_output_dir, "confusion_matrix.png"), dpi=150)
-            plt.close()
-
-            summary_records.append({
-                "Model_Dir": rel_path,
-                "Model_Name": model_name,
-                "Model_Type": f"Sigmoid (Subset Acc: {acc:.4f}, Mean Bin Acc: {mean_bin_acc:.4f})",
-                "Accuracy": acc,
-                "Recall": rec,
-                "F1_Score": f1,
-                "Thresholds": str(thresholds)
-            })
-
-        # Save Classification Report txt file
-        rep_path = os.path.join(model_output_dir, "classification_report.txt")
-        with open(rep_path, "w", encoding="utf-8") as f:
-            f.write(rep_str)
-        print(f"✓ Saved metrics and confusion matrix to {model_output_dir}")
-
-        # Free memory
-        del model
-        tf.keras.backend.clear_session()
-        gc.collect()
-
-    # 4. Save comparative summary CSV
     summary_df = pd.DataFrame(summary_records)
-    summary_path = os.path.join(OUTPUT_DIR, "cross_dataset_summary.csv")
+    summary_path = os.path.join(out_dir, f"cross_dataset_summary.csv")
     summary_df.to_csv(summary_path, index=False)
-    
     print("\n" + "=" * 80)
-    print("ALL EVALUATIONS FINISHED")
-    print("=" * 80)
-    print(f"Summary table saved to: {summary_path}")
-    print(summary_df.to_string(index=False))
+    print(f"DIRECTION DONE: {direction}")
+    print(f"Summary saved: {summary_path}")
+    try:
+        print(summary_df.to_string(index=False))
+    except Exception:
+        pass
+
+# =====================================================================
+# MAIN
+# =====================================================================
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Bidirectional cross-dataset evaluation")
+    parser.add_argument(
+        "--direction",
+        choices=["PTBXL_to_CHAPMAN", "CHAPMAN_to_PTBXL", "PTBXL_to_PTBXL", "CHAPMAN_to_CHAPMAN"],
+        nargs="*",
+        default=["PTBXL_to_CHAPMAN", "CHAPMAN_to_PTBXL"]
+    )
+    parser.add_argument(
+        "--per-dataset",
+        action="store_true",
+        help="Also run PTBXL_to_PTBXL and CHAPMAN_to_CHAPMAN."
+    )
+    args = parser.parse_args()
+
+    directions = list(args.direction)
+    if args.per_dataset:
+        for d in ["PTBXL_to_PTBXL", "CHAPMAN_to_CHAPMAN"]:
+            if d not in directions:
+                directions.append(d)
+
+    for direction in directions:
+        run_direction(direction)
+
 
 if __name__ == "__main__":
     main()

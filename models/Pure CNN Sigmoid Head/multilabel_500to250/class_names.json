@@ -1,0 +1,9 @@
+{
+  "class_names": [
+    "Normal",
+    "AF",
+    "Takikardia",
+    "Bradikardia"
+  ],
+  "legacy_order": "TARGET_CLASSES (Normal-first)"
+}
