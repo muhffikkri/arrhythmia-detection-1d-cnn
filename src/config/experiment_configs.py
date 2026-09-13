@@ -10,7 +10,29 @@ class Config:
 
     INPUT_SHAPE = (2500, 3)
 
+    # Class count for the shared 4-class scheme. When LABEL_SCHEME is
+    # "native", the number of classes is derived from the manifest by the
+    # dataset loader and overrides this value.
     CLASSES = 4
+
+    # =========================================================
+    # LABEL SCHEME (DATA-DRIVEN)
+    # =========================================================
+    # - "mapped": the shared 4-class scheme (config.TARGET_CLASSES) used
+    #   for cross-dataset training/evaluation (Chapman <-> PTB-XL).
+    # - "native": labels use the dataset's original names (PTB-XL SCP codes,
+    #   Chapman SNOMED-CT codes) read straight from the manifest; no mapping.
+    LABEL_SCHEME = "mapped"
+
+    # =========================================================
+    # TRAIN / TEST DATASET SELECTION (CROSS-DATASET MATRIX)
+    # =========================================================
+    # Options: "PTBXL" | "CHAPMAN"
+    # - TRAIN_DATASET == TEST_DATASET -> per-dataset training/test.
+    # - TRAIN_DATASET="PTBXL", TEST_DATASET="CHAPMAN" -> zero-shot external
+    #   validation (and the reverse direction likewise).
+    TRAIN_DATASET = "PTBXL"
+    TEST_DATASET = "PTBXL"
 
     # =========================================================
     # TRAINING
