@@ -148,6 +148,10 @@ def evaluate_and_plot_confusion_matrix(model_path, folder_key="E2_clean_100_to_2
         target_split=target_split,
         scheme=scheme
     )
+    display_class_names = [
+        "Nonaritmia" if class_name == "Normal" else class_name
+        for class_name in class_names
+    ]
 
     print(f"[OK] Evaluated Samples (N): {len(X_eval)}")
 
@@ -172,8 +176,8 @@ def evaluate_and_plot_confusion_matrix(model_path, folder_key="E2_clean_100_to_2
     cm_norm = np.nan_to_num(cm_norm)
 
     # Export Classification Report
-    clr_str = classification_report(y_true_indices, y_pred_indices, target_names=class_names, digits=4)
-    clr_dict = classification_report(y_true_indices, y_pred_indices, target_names=class_names, output_dict=True)
+    clr_str = classification_report(y_true_indices, y_pred_indices, target_names=display_class_names, digits=4)
+    clr_dict = classification_report(y_true_indices, y_pred_indices, target_names=display_class_names, output_dict=True)
     
     print("\n--- Classification Report ---")
     print(clr_str)
@@ -202,8 +206,8 @@ def evaluate_and_plot_confusion_matrix(model_path, folder_key="E2_clean_100_to_2
         annot=True,
         fmt='d',
         cmap='Blues',
-        xticklabels=class_names,
-        yticklabels=class_names,
+        xticklabels=display_class_names,
+        yticklabels=display_class_names,
         cbar=True,
         square=True,
         ax=axes[0],
@@ -219,8 +223,8 @@ def evaluate_and_plot_confusion_matrix(model_path, folder_key="E2_clean_100_to_2
         annot=True,
         fmt='.1f',
         cmap='Greens',
-        xticklabels=class_names,
-        yticklabels=class_names,
+        xticklabels=display_class_names,
+        yticklabels=display_class_names,
         cbar=True,
         square=True,
         ax=axes[1],
