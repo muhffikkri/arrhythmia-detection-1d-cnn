@@ -74,9 +74,11 @@ CHAPMAN_TO_TARGET_MAPPING = {
 # =====================================================================
 # MULTI-LABEL EXPERIMENT CONFIGURATION
 # =====================================================================
-# Menetapkan 4 Kelas Target Utama (Indeks 0 hingga 3)
-TARGET_CLASSES = ["Normal", "AF", "Takikardia", "Bradikardia"]
-NUM_CLASSES = len(TARGET_CLASSES)
+# 4 Class Target Utama (Indeks 0 hingga 3). Sumber tunggal kebenaran
+# kelas berada di `config.TARGET_CLASSES` agar urutan index konsisten
+# di seluruh skema (softmax & sigmoid).
+TARGET_CLASSES = global_cfg.TARGET_CLASSES
+NUM_CLASSES = global_cfg.NUM_CLASSES
 
 # Jalur Output Eksperimen Baru agar Terpisah
 MULTILABEL_OUTPUT_DIR = os.path.join(

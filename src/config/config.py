@@ -110,9 +110,6 @@ SUB_FOLDERS = {
 # =====================================================
 
 # Final Chapman external validation dataset
-"CHAPMAN_CLEAN_250HZ":
-    os.path.join(RESAMPLE_BASE, "chapman_clean_500_to_250"),
-
 "Chapman_clean_500_to_250":
     os.path.join(RESAMPLE_BASE, "chapman_clean_500_to_250")
 
@@ -133,12 +130,19 @@ for folder_path in SUB_FOLDERS.values():
 
 # =========================================================
 
-CLASS_NAMES = [
-    'AF',
-    'Bradikardia',
+# Canonical shared 4-class scheme. Single source of truth used by every
+# consumer (training runners, evaluators, reporting scripts). Selecting
+# LEGACY order compatibility is done in the loaders via LABEL_SCHEME.
+TARGET_CLASSES = [
     'Normal',
+    'AF',
     'Takikardia',
+    'Bradikardia',
 ]
+
+CLASS_NAMES = TARGET_CLASSES
+
+NUM_CLASSES = len(TARGET_CLASSES)
 
 # =========================================================
 
