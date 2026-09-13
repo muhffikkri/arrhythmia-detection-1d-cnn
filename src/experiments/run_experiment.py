@@ -373,6 +373,7 @@ def run_experiment(
         "label_scheme": LABEL_SCHEME,
         "train_dataset": TRAIN_DATASET,
         "test_dataset": TEST_DATASET,
+        "class_names": loader.class_names,
         "filters": filters,
         "kernels": kernels,
         "dilations": dilations,
