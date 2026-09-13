@@ -26,16 +26,19 @@ A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-
 │   ├── PTBXL/                  # PTB-XL ECG raw dataset
 │   └── resample/               # Preprocessed signals (.npy) and dataset manifests
 ├── docs/                       # Research documentation and figures
+│   ├── dataset-label-map.md    # Label mapping guide (mapped/native schemes)
+│   └── training-configs/       # Best-config reference cards for each scheme
 ├── models/                     # Saved model files (.keras / .h5)
 ├── output/                     # Generated experiment results, logs, and plots
+├── standalone/                 # Standalone scripts (copyright / external tools)
 ├── src/                        # Main source code package
 │   ├── analysis/               # EDA and preprocessing quality audits
-│   ├── config/                 # Configurations (paths, hyperparameters, and label mappings)
-│   ├── evaluation/             # Metrics, explainability (Grad-CAM), and statistical tests
-│   ├── experiments/            # Multiclass and multi-label run entry points
+│   ├── config/                 # Configurations (paths, hyperparameters, label mappings)
+│   ├── evaluation/             # Metrics, cross-dataset tests, explainability, statistics
+│   ├── experiments/            # Unified training runner entry points
 │   ├── models/                 # Model structures and loss functions
 │   ├── preprocessing/          # Signal cleaning, filtering, and resampling pipelines
-│   ├── training/               # Data loaders, augmentation, mixup, and experiment tracker
+│   ├── training/               # Data loaders, augmentation, mixup, experiment tracker
 │   └── __init__.py
 ├── requirements.txt            # Python dependencies
 └── README.md                   # Project documentation
@@ -93,31 +96,55 @@ Run EDA scripts to audit the signal distributions and quality:
 # Run basic dataset analysis & quality check
 python src/analysis/eda_visualization.py
 
-# Run advanced quantitative DSP audit (SNR, spectral entropy)
-python src/analysis/audit_preprocessing.py
+# Run advanced quantitative DSP audit (SNR, spectral entropy, HRV)
+python src/analysis/eda_quantitative_audit.py
 ```
 
 ### Step 3: Run Research Experiments
 
-Execute training scripts for either classification scheme. The hyperparameters can be configured dynamically in `src/config/experiment_configs.py`.
+Execute training with the unified runner. All runs are configured in `src/config/experiment_configs.py`:
+
+| Config field | Values | Default | Meaning |
+|---|---|---|---|
+| `Config.SCHEME` | `"softmax"` \| `"sigmoid"` | `"softmax"` | Classification head (multiclass vs. multi-label) |
+| `Config.LABEL_SCHEME` | `"mapped"` \| `"native"` | `"mapped"` | Shared 4-class labels vs. dataset-native labels |
+| `Config.TRAIN_DATASET` | `"PTBXL"` \| `"CHAPMAN"` | `"PTBXL"` | Training dataset |
+| `Config.TEST_DATASET` | `"PTBXL"` \| `"CHAPMAN"` | `"PTBXL"` | Test/eval dataset |
 
 ```powershell
-# Run multiclass experiment (Softmax classification head)
-python src/experiments/run_experiment_softmax.py
+# Multiclass experiment (Softmax head, mapped 4-class labels)
+python src/experiments/run_experiment.py
 
-# Run multi-label experiment (Sigmoid classification head)
-python src/experiments/run_experiment_sigmoid.py
+# Multi-label experiment (Sigmoid head)
+# -> set Config.SCHEME = "sigmoid" in experiment_configs.py
+
+# Cross-dataset training (e.g. train PTB-XL, test Chapman)
+# -> set Config.TEST_DATASET = "CHAPMAN" (LABEL_SCHEME must stay "mapped")
 ```
 
-### Step 4: Statistical Significance Evaluation
+Splits are handled centrally by `src/training/dataset_loader.py`: PTB-XL uses its native `strat_fold` (folds 1-8 train / 9 val / 10 test), Chapman uses a stratified 70/15/15 split. Results (with JSON config, classification report, confusion matrix, and metrics) land under `output/research_experiments/`.
 
-Compare F1 scores across completed experiment phases to identify statistically significant performance changes:
+### Step 4: Cross-Dataset Evaluation
+
+Evaluate trained models from `models/` against the other dataset's domain (registry-driven, bidirectional):
+
+```powershell
+# Default: PTB-XL trained -> Chapman test, and Chapman trained -> PTB-XL test
+python src/evaluation/cross_dataset_test.py
+
+# Also include per-dataset sanity runs (PTB-XL->PTB-XL, Chapman->Chapman)
+python src/evaluation/cross_dataset_test.py --per-dataset
+```
+
+### Step 5: Statistical Significance Evaluation
+
+Compare F1 scores across completed experiment runs to identify statistically significant performance changes:
 
 ```powershell
 python src/evaluation/run_statistical_tests.py
 ```
 
-This produces confidence intervals and Wilcoxon pairwise comparison matrices saved in `output/statistical_tests/`.
+This consumes the unified tracker (`output/research_experiments/master_experiment_tracker.csv`) and produces confidence intervals and Wilcoxon pairwise comparison matrices saved in `output/statistical_tests/`. See [`docs/pipeline.md`](docs/pipeline.md) for the full workflow.
 
 ---
 
@@ -125,6 +152,9 @@ This produces confidence intervals and Wilcoxon pairwise comparison matrices sav
 
 All execution paths, label hierarchies, and hyperparameters are managed under the `src/config/` folder:
 
-- [config.py](arrhythmia-detection-1d-cnn/src/config/config.py): Contains base system paths, auto-directory creation setups, target sampling rates, and lead indices.
-- [config_labels.py](arrhythmia-detection-1d-cnn/src/config/config_labels.py): Consolidates label dictionaries for both datasets (`PTBXL_TO_TARGET_MAPPING` and `CHAPMAN_TO_TARGET_MAPPING`) along with active validation target labels (`["Normal", "AF", "Takikardia", "Bradikardia"]`).
-- [experiment_configs.py](arrhythmia-detection-1d-cnn/src/config/experiment_configs.py): Defines grid-search spaces for filters, kernel sizes, dilations, Mixup augmentation strategies, epochs, and learning rates.
+- [config.py](arrhythmia-detection-1d-cnn/src/config/config.py): Contains base system paths, auto-directory creation setups, target sampling rates, lead indices, and the canonical 4-class order via `TARGET_CLASSES = ["Normal", "AF", "Takikardia", "Bradikardia"]`.
+- [config_labels.py](arrhythmia-detection-1d-cnn/src/config/config_labels.py): Consolidates label dictionaries for both datasets (`PTBXL_TO_TARGET_MAPPING` and `CHAPMAN_TO_TARGET_MAPPING`) and re-exports the target class order from `config.py`.
+- [experiment_configs.py](arrhythmia-detection-1d-cnn/src/config/experiment_configs.py): Defines the active run (`SCHEME`, `LABEL_SCHEME`, `TRAIN_DATASET`, `TEST_DATASET`) plus grid-search spaces for filters, kernel sizes, dilations, Mixup augmentation strategies, epochs, and learning rates.
+- [model_registry.py](arrhythmia-detection-1d-cnn/src/config/model_registry.py): Central registry of trained models for cross-dataset evaluation.
+
+See [`docs/dataset-label-map.md`](docs/dataset-label-map.md) for the label mapping guide and [`docs/training-configs/`](docs/training-configs/) for the best-config reference cards.
