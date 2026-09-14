@@ -74,7 +74,41 @@ DATASET_DIR,
 SUB_FOLDERS = {
 
 # =====================================================
-# LEGACY / OPTIONAL
+# ACTIVE SCHEME (100 Hz / 500 Hz) -- current research schedule
+# =====================================================
+# Cleaned (preprocessed) signal folders per dataset.
+# Raw ("murni") folders hold the unprocessed wave-forms (length/tensor only).
+
+# PTB-XL native 100 Hz literals -> 100 Hz
+"ptbxl_raw_100hz":
+    os.path.join(RESAMPLE_BASE, "ptbxl_raw_100hz"),
+
+"ptbxl_clean_100hz":
+    os.path.join(RESAMPLE_BASE, "ptbxl_clean_100hz"),
+
+# PTB-XL native 500 Hz literals -> 500 Hz
+"ptbxl_raw_500hz":
+    os.path.join(RESAMPLE_BASE, "ptbxl_raw_500hz"),
+
+"ptbxl_clean_500hz":
+    os.path.join(RESAMPLE_BASE, "ptbxl_clean_500hz"),
+
+# Chapman native 500 Hz literals -> 500 Hz
+"chapman_raw_500hz":
+    os.path.join(RESAMPLE_BASE, "chapman_raw_500hz"),
+
+"chapman_clean_500hz":
+    os.path.join(RESAMPLE_BASE, "chapman_clean_500hz"),
+
+# Chapman down-sampled to 100 Hz
+"chapman_raw_100hz":
+    os.path.join(RESAMPLE_BASE, "chapman_raw_100hz"),
+
+"chapman_clean_100hz":
+    os.path.join(RESAMPLE_BASE, "chapman_clean_100hz"),
+
+# =====================================================
+# LEGACY / OPTIONAL (250 Hz scheme, deferred to the future)
 # =====================================================
 
 "E1_100_native":
@@ -89,10 +123,6 @@ SUB_FOLDERS = {
 "E4_500_native":
     os.path.join(RESAMPLE_BASE, "exp_500_native"),
 
-# =====================================================
-# CLEANED SIGNALS
-# =====================================================
-
 "E1_clean_100_native":
     os.path.join(RESAMPLE_BASE, "cleaned_100_native"),
 
@@ -105,15 +135,42 @@ SUB_FOLDERS = {
 "E4_clean_500_native":
     os.path.join(RESAMPLE_BASE, "cleaned_500_native"),
 
-# =====================================================
-# FINAL ACTIVE DATASETS
-# =====================================================
-
-# Final Chapman external validation dataset
+# Legacy Chapman 250 Hz external validation dataset (pre-rework)
 "Chapman_clean_500_to_250":
     os.path.join(RESAMPLE_BASE, "chapman_clean_500_to_250")
 
 }
+
+# =========================================================
+# FOLDER -> SAMPLING RATE (single source for input-shape resolution)
+# =========================================================
+
+FOLDER_FS = {
+    # Active 100/500 Hz scheme
+    "ptbxl_raw_100hz": 100,
+    "ptbxl_clean_100hz": 100,
+    "ptbxl_raw_500hz": 500,
+    "ptbxl_clean_500hz": 500,
+    "chapman_raw_100hz": 100,
+    "chapman_clean_100hz": 100,
+    "chapman_raw_500hz": 500,
+    "chapman_clean_500hz": 500,
+    # Legacy 250 Hz scheme
+    "E1_100_native": 100,
+    "E2_100_to_250": 250,
+    "E3_500_to_250": 250,
+    "E4_500_native": 500,
+    "E1_clean_100_native": 100,
+    "E2_clean_100_to_250": 250,
+    "E3_clean_500_to_250": 250,
+    "E4_clean_500_native": 500,
+    "Chapman_clean_500_to_250": 250,
+}
+
+
+def folder_fs(folder_key):
+    """Sampling rate of a SUB_FOLDERS key (defaults to 250 Hz)."""
+    return FOLDER_FS.get(folder_key, 250)
 
 # =========================================================
 

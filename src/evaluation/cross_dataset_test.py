@@ -124,9 +124,13 @@ def load_sigmoid_thresholds(model_dir):
 # TARGET DATA
 # =====================================================================
 
-def load_target_eval(dataset):
+def load_target_eval(dataset, folder_key=None):
     print(f"\n[Data] Loading {dataset} mapped test split...")
-    loader = DatasetLoader(dataset=dataset, label_scheme="mapped")
+    loader = DatasetLoader(
+        dataset=dataset,
+        label_scheme="mapped",
+        folder_key=folder_key
+    )
     X, y_onehot = loader.build_eval_split("test")
     names = [loader.class_names[idx] for idx in np.argmax(y_onehot, axis=1)]
     return X, names, loader.class_names

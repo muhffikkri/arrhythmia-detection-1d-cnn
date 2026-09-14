@@ -1,6 +1,13 @@
 # =====================================================================
-# FILE 3: process_ptbxl.py
-# PTB-XL FULL PROCESSING + REPRODUCIBLE MANIFEST SYSTEM
+# FILE 3: proccess_ptbxl.py
+# PTB-XL FULL PROCESSING + REPRODUCIBLE MANIFEST SYSTEM (100/500 Hz)
+# =====================================================================
+# Produces, per PTB-XL record:
+#   - raw ("murni") tensors  : 100 Hz and 500 Hz
+#   - cleaned tensors        : 100 Hz and 500 Hz
+# Cleaning stages are driven by preprocessing.CLEANING_FLAGS
+# (wavelet + median baseline + bandpass enabled, z-score disabled).
+# The 250 Hz scheme is deferred to a future experiment (GENERATE_SCHEMES).
 # =====================================================================
 
 import os
@@ -25,11 +32,21 @@ from src.preprocessing import preprocessing as dsp
 
 
 # =====================================================================
+# OUTPUT SCHEME (active = 100/500 Hz, 250 Hz deferred)
+# =====================================================================
+
+GENERATE_SCHEMES = {
+    "100hz": True,
+    "500hz": True,
+    "250hz": False,  # deferred to a future experiment
+}
+
+
+# =====================================================================
 # PTB-XL LABEL MAPPING
 # =====================================================================
 
 ptbxl_to_target_mapping = label_cfg.PTBXL_TO_TARGET_MAPPING
-
 
 
 # =====================================================================
@@ -117,6 +134,11 @@ df['scp_codes'] = df['scp_codes'].apply(
 )
 
 print(f"Total Records : {len(df)}")
+print(f"Active schemes: "
+      f"{'100Hz ' if GENERATE_SCHEMES['100hz'] else ''}"
+      f"{'500Hz ' if GENERATE_SCHEMES['500hz'] else ''}"
+      f"{'250Hz ' if GENERATE_SCHEMES['250hz'] else ''}"
+      f"| cleaning = {dsp.cleaning_pipeline_description()}")
 
 
 # =====================================================================
@@ -171,7 +193,7 @@ for ecg_id, row in tqdm(
     orig_len_500 = 0
 
     # ================================================================
-    # 100Hz PROCESSING
+    # 100Hz PROCESSING (raw + cleaned)
     # ================================================================
 
     path_100 = os.path.join(
@@ -191,114 +213,81 @@ for ecg_id, row in tqdm(
                 lead_3_100.shape[0]
             )
 
-            # ========================================================
-            # E1 RAW 100Hz
-            # ========================================================
+            if GENERATE_SCHEMES["100hz"]:
 
-            e1_raw = dsp.ensure_length(
-                lead_3_100,
-                cfg.TARGET_LEN[100]
-            )
+                # Raw ("murni") 100Hz tensor
+                raw_100 = dsp.ensure_length(
+                    lead_3_100,
+                    cfg.TARGET_LEN[100]
+                )
 
-            e1_raw_path = os.path.join(
-                cfg.SUB_FOLDERS["E1_100_native"],
-                base_filename
-            )
+                raw_100_path = os.path.join(
+                    cfg.SUB_FOLDERS["ptbxl_raw_100hz"],
+                    base_filename
+                )
 
-            save_numpy(
-                e1_raw_path,
-                e1_raw
-            )
+                save_numpy(raw_100_path, raw_100)
 
-            paths["E1_raw"] = e1_raw_path
+                paths["ptbxl_raw_100hz"] = raw_100_path
 
-            # ========================================================
-            # E1 CLEAN 100Hz
-            # ========================================================
+                # Cleaned 100Hz tensor
+                clean_native_100 = dsp.advanced_cleaning_pipeline(
+                    raw_signal=lead_3_100,
+                    src_fs=100.0,
+                    target_fs=100.0
+                )
 
-            clean_native_100 = dsp.advanced_cleaning_pipeline(
-                raw_signal=lead_3_100,
-                src_fs=100.0,
-                target_fs=100.0
-            )
+                clean_100 = dsp.ensure_length(
+                    clean_native_100,
+                    cfg.TARGET_LEN[100]
+                )
 
-            e1_clean = dsp.ensure_length(
-                clean_native_100,
-                cfg.TARGET_LEN[100]
-            )
+                clean_100_path = os.path.join(
+                    cfg.SUB_FOLDERS["ptbxl_clean_100hz"],
+                    base_filename
+                )
 
-            e1_clean_path = os.path.join(
-                cfg.SUB_FOLDERS["E1_clean_100_native"],
-                base_filename
-            )
+                save_numpy(clean_100_path, clean_100)
 
-            save_numpy(
-                e1_clean_path,
-                e1_clean
-            )
+                paths["ptbxl_clean_100hz"] = clean_100_path
 
-            paths["E1_clean"] = e1_clean_path
+            if GENERATE_SCHEMES["250hz"]:
 
-            # ========================================================
-            # E2 RAW 100 -> 250
-            # ========================================================
+                # Deferred scheme: 100Hz -> 250Hz upsampled (legacy folders)
+                raw_up = dsp.ensure_length(
+                    dsp.apply_poly_resample(lead_3_100, 100.0, 250.0),
+                    cfg.TARGET_LEN[250]
+                )
 
-            e2_raw_sig = dsp.apply_poly_resample(
-                lead_3_100,
-                100.0,
-                250.0
-            )
+                raw_up_path = os.path.join(
+                    cfg.SUB_FOLDERS["E2_100_to_250"],
+                    base_filename
+                )
 
-            e2_raw = dsp.ensure_length(
-                e2_raw_sig,
-                cfg.TARGET_LEN[250]
-            )
+                save_numpy(raw_up_path, raw_up)
 
-            e2_raw_path = os.path.join(
-                cfg.SUB_FOLDERS["E2_100_to_250"],
-                base_filename
-            )
+                clean_up = dsp.ensure_length(
+                    dsp.advanced_cleaning_pipeline(
+                        raw_signal=lead_3_100,
+                        src_fs=100.0,
+                        target_fs=250.0
+                    ),
+                    cfg.TARGET_LEN[250]
+                )
 
-            save_numpy(
-                e2_raw_path,
-                e2_raw
-            )
+                clean_up_path = os.path.join(
+                    cfg.SUB_FOLDERS["E2_clean_100_to_250"],
+                    base_filename
+                )
 
-            paths["E2_raw"] = e2_raw_path
-
-            # ========================================================
-            # E2 CLEAN 100 -> 250
-            # ========================================================
-
-            clean_upsampled_250 = dsp.advanced_cleaning_pipeline(
-                raw_signal=lead_3_100,
-                src_fs=100.0,
-                target_fs=250.0
-            )
-
-            e2_clean = dsp.ensure_length(
-                clean_upsampled_250,
-                cfg.TARGET_LEN[250]
-            )
-
-            e2_clean_path = os.path.join(
-                cfg.SUB_FOLDERS["E2_clean_100_to_250"],
-                base_filename
-            )
-
-            save_numpy(
-                e2_clean_path,
-                e2_clean
-            )
-
-            paths["E2_clean"] = e2_clean_path
+                save_numpy(clean_up_path, clean_up)
 
         except Exception as e:
 
             print(f"[100Hz ERROR] {base_filename} -> {e}")
 
     # ================================================================
-    # 500Hz PROCESSING
+    # 500Hz PROCESSING (raw + cleaned)
     # ================================================================
 
     path_500 = os.path.join(
@@ -319,134 +308,97 @@ for ecg_id, row in tqdm(
                 lead_3_500.shape[0]
             )
 
-            # ========================================================
-            # E4 RAW 500Hz
-            # ========================================================
+            if GENERATE_SCHEMES["500hz"]:
 
-            e4_raw = dsp.ensure_length(
-                lead_3_500,
-                cfg.TARGET_LEN[500]
-            )
+                # Raw ("murni") 500Hz tensor
+                raw_500 = dsp.ensure_length(
+                    lead_3_500,
+                    cfg.TARGET_LEN[500]
+                )
 
-            e4_raw_path = os.path.join(
-                cfg.SUB_FOLDERS["E4_500_native"],
-                base_filename
-            )
+                raw_500_path = os.path.join(
+                    cfg.SUB_FOLDERS["ptbxl_raw_500hz"],
+                    base_filename
+                )
 
-            save_numpy(
-                e4_raw_path,
-                e4_raw
-            )
+                save_numpy(raw_500_path, raw_500)
 
-            paths["E4_raw"] = e4_raw_path
+                paths["ptbxl_raw_500hz"] = raw_500_path
 
-            # ========================================================
-            # E4 CLEAN 500Hz
-            # ========================================================
+                # Cleaned 500Hz tensor
+                clean_native_500 = dsp.advanced_cleaning_pipeline(
+                    raw_signal=lead_3_500,
+                    src_fs=500.0,
+                    target_fs=500.0
+                )
 
-            clean_native_500 = dsp.advanced_cleaning_pipeline(
-                raw_signal=lead_3_500,
-                src_fs=500.0,
-                target_fs=500.0
-            )
+                clean_500 = dsp.ensure_length(
+                    clean_native_500,
+                    cfg.TARGET_LEN[500]
+                )
 
-            e4_clean = dsp.ensure_length(
-                clean_native_500,
-                cfg.TARGET_LEN[500]
-            )
+                clean_500_path = os.path.join(
+                    cfg.SUB_FOLDERS["ptbxl_clean_500hz"],
+                    base_filename
+                )
 
-            e4_clean_path = os.path.join(
-                cfg.SUB_FOLDERS["E4_clean_500_native"],
-                base_filename
-            )
+                save_numpy(clean_500_path, clean_500)
 
-            save_numpy(
-                e4_clean_path,
-                e4_clean
-            )
+                paths["ptbxl_clean_500hz"] = clean_500_path
 
-            paths["E4_clean"] = e4_clean_path
+            if GENERATE_SCHEMES["250hz"]:
 
-            # ========================================================
-            # E3 RAW 500 -> 250
-            # ========================================================
+                # Deferred scheme: 500Hz -> 250Hz downsampled (legacy folders)
+                raw_dn = dsp.ensure_length(
+                    dsp.apply_poly_resample(lead_3_500, 500.0, 250.0),
+                    cfg.TARGET_LEN[250]
+                )
 
-            e3_raw_sig = dsp.apply_poly_resample(
-                lead_3_500,
-                500.0,
-                250.0
-            )
+                raw_dn_path = os.path.join(
+                    cfg.SUB_FOLDERS["E3_500_to_250"],
+                    base_filename
+                )
 
-            e3_raw = dsp.ensure_length(
-                e3_raw_sig,
-                cfg.TARGET_LEN[250]
-            )
+                save_numpy(raw_dn_path, raw_dn)
 
-            e3_raw_path = os.path.join(
-                cfg.SUB_FOLDERS["E3_500_to_250"],
-                base_filename
-            )
+                clean_dn = dsp.ensure_length(
+                    dsp.advanced_cleaning_pipeline(
+                        raw_signal=lead_3_500,
+                        src_fs=500.0,
+                        target_fs=250.0
+                    ),
+                    cfg.TARGET_LEN[250]
+                )
 
-            save_numpy(
-                e3_raw_path,
-                e3_raw
-            )
+                clean_dn_path = os.path.join(
+                    cfg.SUB_FOLDERS["E3_clean_500_to_250"],
+                    base_filename
+                )
 
-            paths["E3_raw"] = e3_raw_path
-
-            # ========================================================
-            # E3 CLEAN 500 -> 250
-            # ========================================================
-
-            clean_downsampled_250 = dsp.advanced_cleaning_pipeline(
-                raw_signal=lead_3_500,
-                src_fs=500.0,
-                target_fs=250.0
-            )
-
-            e3_clean = dsp.ensure_length(
-                clean_downsampled_250,
-                cfg.TARGET_LEN[250]
-            )
-
-            e3_clean_path = os.path.join(
-                cfg.SUB_FOLDERS["E3_clean_500_to_250"],
-                base_filename
-            )
-
-            save_numpy(
-                e3_clean_path,
-                e3_clean
-            )
-
-            paths["E3_clean"] = e3_clean_path
-
-
+                save_numpy(clean_dn_path, clean_dn)
 
         except Exception as e:
 
             print(f"[500Hz ERROR] {base_filename} -> {e}")
 
     # ================================================================
-    # HASH COMPUTATION
+    # HASH COMPUTATION (primary cleaned tensor: 500Hz when present)
     # ================================================================
 
     clean_md5 = None
     clean_sha1 = None
 
-    if "E3_clean" in paths:
+    primary_clean = (
+        paths.get("ptbxl_clean_500hz")
+        or paths.get("ptbxl_clean_100hz")
+    )
 
-        clean_array = np.load(
-            paths["E3_clean"]
-        )
+    if primary_clean is not None:
 
-        clean_md5 = compute_md5(
-            clean_array
-        )
+        clean_array = np.load(primary_clean)
 
-        clean_sha1 = compute_sha1(
-            clean_array
-        )
+        clean_md5 = compute_md5(clean_array)
+        clean_sha1 = compute_sha1(clean_array)
 
     # ================================================================
     # MANIFEST RECORD
@@ -490,12 +442,6 @@ for ecg_id, row in tqdm(
 
         "original_len_500hz": orig_len_500,
 
-        "target_fs_100hz": 100,
-
-        "target_fs_250hz": 250,
-
-        "target_fs_500hz": 500,
-
         # ============================================================
         # PIPELINE
         # ============================================================
@@ -504,13 +450,10 @@ for ecg_id, row in tqdm(
             "polyphase_fir",
 
         "cleaning_pipeline":
-            "wavelet_db4"
-            "+median_baseline"
-            "+bandpass"
-            "+zscore_clip",
+            dsp.cleaning_pipeline_description(),
 
         "pipeline_version":
-            "v5.1_full_multiresolution",
+            dsp.PIPELINE_VERSION,
 
         # ============================================================
         # HASH
@@ -526,29 +469,17 @@ for ecg_id, row in tqdm(
         # PATHS
         # ============================================================
 
-        "path_e1_raw":
-            paths.get("E1_raw", None),
+        "path_ptbxl_raw_100hz":
+            paths.get("ptbxl_raw_100hz", None),
 
-        "path_e1_clean":
-            paths.get("E1_clean", None),
+        "path_ptbxl_clean_100hz":
+            paths.get("ptbxl_clean_100hz", None),
 
-        "path_e2_raw":
-            paths.get("E2_raw", None),
+        "path_ptbxl_raw_500hz":
+            paths.get("ptbxl_raw_500hz", None),
 
-        "path_e2_clean":
-            paths.get("E2_clean", None),
-
-        "path_e3_raw":
-            paths.get("E3_raw", None),
-
-        "path_e3_clean":
-            paths.get("E3_clean", None),
-
-        "path_e4_raw":
-            paths.get("E4_raw", None),
-
-        "path_e4_clean":
-            paths.get("E4_clean", None)
+        "path_ptbxl_clean_500hz":
+            paths.get("ptbxl_clean_500hz", None)
     })
 
 

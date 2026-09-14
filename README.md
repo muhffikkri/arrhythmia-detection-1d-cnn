@@ -3,13 +3,18 @@
 A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-lead (and 3-lead) Electrocardiogram (ECG) signals using custom 1D Convolutional Neural Networks (CNNs). The pipeline supports both **multiclass** (using Softmax classification head) and **multi-label** (using Sigmoid classification heads) arrhythmia classification across the PTB-XL and Chapman datasets.
 
 > [!NOTE]
-> **250Hz Resampling Specification**: For research consistency and seamless alignment with physical deployments, all training, testing, and external validations in this repository are unified at **250 Hz**. This frequency specifically matches the sampling configuration of the hardware analog front-end (AFE) **ADS1293 sensor**, which has been set to **250 Hz** for real-time acquisition.
+> **Active sampling scheme (100/500 Hz)**: All training, testing, and external validations run on the
+> **raw ("murni") and preprocessed** tensor folders at **100 Hz and 500 Hz** (`dataset/resample/`).
+> Preprocessing is config-driven via `src/preprocessing/preprocessing.py::CLEANING_FLAGS` (wavelet `db4`
+> baseline-wander removal + median baseline + bandpass using the existing 0.5–45 Hz bounds; **z-score
+> normalization is currently disabled** — code kept, stage turned off). The unified **250 Hz** scheme
+> (hardware-aligned to the ADS1293 AFE) is **deferred to a future experiment**.
 
 ---
 
 ## 🚀 Key Features
 
-- **Advanced DSP Preprocessing**: Polyphase FIR resampling, Wavelet `db4` adaptive denoising, median filtering for baseline wander removal, and z-score signal clipping.
+- **Advanced DSP Preprocessing**: Polyphase FIR resampling plus config-driven cleaning stages (`CLEANING_FLAGS`): Wavelet `db4` adaptive denoising and median filtering for baseline wander removal, and a bandpass high-frequency filter using the existing 0.5–45 Hz bounds. z-score clipping is available but disabled in the current schedule.
 - **Dynamic 1D-CNN Factory**: High-performance architecture supporting Stochastic Depth (residual branch dropping), Squeeze-and-Excitation (SE) channel attention, and multiple temporal heads (LSTM, Bidirectional LSTM, and Multi-Head Attention).
 - **Comprehensive Experiment Tracker**: Auto-generated experiment outputs containing JSON configurations, training CSV logs, model summary cards, confusion matrices, and detailed metrics.
 - **Medical-Grade Visualization**: Clinical-style vertical multi-lead plots of misclassified samples alongside raw vs. cleaned ECG morphology steps.
