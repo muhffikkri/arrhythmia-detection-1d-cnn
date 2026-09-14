@@ -17,6 +17,7 @@ from sklearn.model_selection import train_test_split
 
 from src.config import config as cfg
 from src.config import config_labels as label_cfg
+from src.config.experiment_configs import Config
 
 warnings.filterwarnings("ignore")
 
@@ -173,6 +174,8 @@ class DatasetLoader:
         self.dataset = dataset
         self.label_scheme = label_scheme
         self.folder_key = folder_key or self._default_folder_key()
+        self.fs = cfg.folder_fs(self.folder_key)
+        self.signal_len = cfg.TARGET_LEN.get(self.fs, 2500)
         self.max_samples = max_samples
         self.manifest = load_manifest(dataset, label_scheme)
         self.df = assign_splits(self.manifest, dataset)
@@ -183,8 +186,8 @@ class DatasetLoader:
 
     def _default_folder_key(self):
         if self.dataset == "CHAPMAN":
-            return "Chapman_clean_500_to_250"
-        return "E2_clean_100_to_250"
+            return Config.FOLDER_CHAPMAN
+        return Config.FOLDER_PTBXL
 
     def _signal_dir(self):
         return cfg.SUB_FOLDERS[self.folder_key]
@@ -250,6 +253,7 @@ class DatasetLoader:
         print(f"Dataset       : {self.dataset}")
         print(f"Label scheme  : {self.label_scheme}")
         print(f"Signal folder : {self.folder_key} -> {self._signal_dir()}")
+        print(f"Sampling rate : {self.fs} Hz | signal length = {self.signal_len}")
         print(f"# classes     : {len(self.class_names)}")
         print(f"Class names   : {self.class_names}")
         print("=" * 70)

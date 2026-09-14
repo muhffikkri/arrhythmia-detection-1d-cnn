@@ -16,10 +16,40 @@ import pywt
 # GLOBAL CONFIG
 # =========================================================
 
-PIPELINE_VERSION = "v5.0_research_grade"
+PIPELINE_VERSION = "v6.0_100_500hz"
 
 DEFAULT_CLIP_MIN = -5.0
 DEFAULT_CLIP_MAX = 5.0
+
+# =========================================================
+# CLEANING STAGE SWITCHES (config-driven, code kept intact)
+# =========================================================
+# Every destructive/cleaning stage can be enabled or disabled from here
+# without deleting any DSP function:
+#   apply_wavelet_denoising  -> baseline wander removal / denoising (db4)
+#   apply_median_baseline    -> median-based baseline correction
+#   apply_butter_bandpass    -> high-frequency filter using the existing
+#                               band bounds (lowcut/highcut per source fs)
+#   apply_zscore_clip        -> z-score normalization + clipping
+#
+# Current research schedule: only z-score normalization is disabled.
+# The 250 Hz scheme is deferred to a future experiment (see proccess_*.py).
+CLEANING_FLAGS = {
+    "apply_wavelet_denoising": True,
+    "apply_median_baseline": True,
+    "apply_butter_bandpass": True,
+    "apply_zscore_clip": False,
+}
+
+
+def cleaning_pipeline_description():
+    """Human-readable '+'-joined list of the currently enabled stages."""
+    enabled = [
+        name.replace("apply_", "")
+        for name, on in CLEANING_FLAGS.items()
+        if on
+    ]
+    return "+".join(enabled)
 
 
 # =========================================================
@@ -334,39 +364,45 @@ def advanced_cleaning_pipeline_offline(
     x = validate_signal_shape(x)
 
     # =====================================================
-    # 1. Wavelet Denoising
+    # 1. Wavelet Denoising (baseline wander removal / HF noise)
     # =====================================================
 
-    x = apply_wavelet_denoising(
-        x,
-        wavelet='db4',
-        level=4
-    )
+    if CLEANING_FLAGS["apply_wavelet_denoising"]:
+
+        x = apply_wavelet_denoising(
+            x,
+            wavelet='db4',
+            level=4
+        )
 
     # =====================================================
     # 2. Baseline Correction
     # =====================================================
 
-    kernel_size = 101 if src_fs >= 500 else 51
+    if CLEANING_FLAGS["apply_median_baseline"]:
 
-    x = apply_median_baseline(
-        x,
-        kernel_size=kernel_size
-    )
+        kernel_size = 101 if src_fs >= 500 else 51
+
+        x = apply_median_baseline(
+            x,
+            kernel_size=kernel_size
+        )
 
     # =====================================================
-    # 3. Bandpass
+    # 3. Bandpass (high-frequency filter, existing bounds)
     # =====================================================
 
-    highcut = 100.0 if src_fs >= 250 else 45.0
+    if CLEANING_FLAGS["apply_butter_bandpass"]:
 
-    x = apply_butter_bandpass(
-        x,
-        fs=src_fs,
-        lowcut=0.5,
-        highcut=highcut,
-        order=4
-    )
+        highcut = 100.0 if src_fs >= 250 else 45.0
+
+        x = apply_butter_bandpass(
+            x,
+            fs=src_fs,
+            lowcut=0.5,
+            highcut=highcut,
+            order=4
+        )
 
     # =====================================================
     # 4. Resample
@@ -381,10 +417,12 @@ def advanced_cleaning_pipeline_offline(
         )
 
     # =====================================================
-    # 5. Normalize
+    # 5. Normalize (optional)
     # =====================================================
 
-    x = apply_zscore_clip(x)
+    if CLEANING_FLAGS["apply_zscore_clip"]:
+
+        x = apply_zscore_clip(x)
 
     return sanitize_signal(x)
 
@@ -420,41 +458,49 @@ def advanced_cleaning_pipeline_upsampling(
     )
 
     # =====================================================
-    # 2. Wavelet
+    # 2. Wavelet (baseline wander removal / HF noise)
     # =====================================================
 
-    x = apply_wavelet_denoising(
-        x,
-        wavelet='db4',
-        level=4
-    )
+    if CLEANING_FLAGS["apply_wavelet_denoising"]:
+
+        x = apply_wavelet_denoising(
+            x,
+            wavelet='db4',
+            level=4
+        )
 
     # =====================================================
     # 3. Baseline
     # =====================================================
 
-    x = apply_median_baseline(
-        x,
-        kernel_size=51
-    )
+    if CLEANING_FLAGS["apply_median_baseline"]:
+
+        x = apply_median_baseline(
+            x,
+            kernel_size=51
+        )
 
     # =====================================================
-    # 4. Bandpass
+    # 4. Bandpass (high-frequency filter, existing bounds)
     # =====================================================
 
-    x = apply_butter_bandpass(
-        x,
-        fs=target_fs,
-        lowcut=0.5,
-        highcut=45.0,
-        order=4
-    )
+    if CLEANING_FLAGS["apply_butter_bandpass"]:
+
+        x = apply_butter_bandpass(
+            x,
+            fs=target_fs,
+            lowcut=0.5,
+            highcut=45.0,
+            order=4
+        )
 
     # =====================================================
-    # 5. Normalize
+    # 5. Normalize (optional)
     # =====================================================
 
-    x = apply_zscore_clip(x)
+    if CLEANING_FLAGS["apply_zscore_clip"]:
+
+        x = apply_zscore_clip(x)
 
     return sanitize_signal(x)
 

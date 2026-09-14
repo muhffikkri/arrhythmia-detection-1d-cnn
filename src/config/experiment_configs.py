@@ -8,6 +8,8 @@ class Config:
     # INPUT
     # =========================================================
 
+    # Legacy default (250 Hz scheme). The unified runner overrides this
+    # from the active folder key (100 Hz -> (1000, 3), 500 Hz -> (5000, 3)).
     INPUT_SHAPE = (2500, 3)
 
     # Class count for the shared 4-class scheme. When LABEL_SCHEME is
@@ -65,16 +67,26 @@ class Config:
     ]
 
     # =========================================================
-    # ACTIVE DATASETS FOR EXPERIMENTS
+    # ACTIVE DATA FOLDER (SELECTOR)
     # =========================================================
-    # Options for raw vs cleaned datasets (matching cfg.SUB_FOLDERS):
-    # - Raw Datasets:     "E1_100_native", "E2_100_to_250", "E3_500_to_250", "E4_500_native"
-    # - Cleaned Datasets: "E1_clean_100_native", "E2_clean_100_to_250", "E3_clean_500_to_250", "E4_clean_500_native"
+    # Single active SUB_FOLDERS key per dataset. The Kaggle notebook makes
+    # training selectable "by choosing a folder" via these two values.
+    # Options (100/500 Hz scheme):
+    #   "ptbxl_clean_500hz", "ptbxl_raw_500hz", "ptbxl_clean_100hz",
+    #   "ptbxl_raw_100hz", "chapman_clean_500hz", "chapman_raw_500hz",
+    #   "chapman_clean_100hz", "chapman_raw_100hz"
+    # The unified runner derives INPUT_SHAPE from the folder sampling rate.
+    FOLDER_PTBXL = "ptbxl_clean_500hz"
+    FOLDER_CHAPMAN = "chapman_clean_500hz"
+
+    # =========================================================
+    # ACTIVE DATASETS FOR EXPERIMENTS (LEGACY)
+    # =========================================================
+    # Retained for compatibility; the runner now uses FOLDER_PTBXL /
+    # FOLDER_CHAPMAN as the single source for the active folder per dataset.
     ACTIVE_DATASETS = [
-        "E2_clean_100_to_250",
-        "E3_clean_500_to_250",
-        # "E2_100_to_250",      # Raw 100Hz upsampled to 250Hz
-        # "E3_500_to_250",      # Raw 500Hz downsampled to 250Hz
+        "ptbxl_clean_500hz",
+        "ptbxl_clean_100hz",
     ]
 
     # =========================================================

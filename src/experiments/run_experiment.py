@@ -107,8 +107,6 @@ if IS_CROSS_DATASET and LABEL_SCHEME != "mapped":
         "native label spaces (SCP codes vs SNOMED-CT codes) do not overlap."
     )
 
-CHAPMAN_FOLDER_KEY = "Chapman_clean_500_to_250"
-
 
 def get_loss():
     """Focal loss for multiclass; binary crossentropy for multilabel."""
@@ -373,6 +371,9 @@ def run_experiment(
         "label_scheme": LABEL_SCHEME,
         "train_dataset": TRAIN_DATASET,
         "test_dataset": TEST_DATASET,
+        "signal_folder": loader.folder_key,
+        "sampling_rate": loader.fs,
+        "input_shape": list(Config.INPUT_SHAPE),
         "class_names": loader.class_names,
         "filters": filters,
         "kernels": kernels,
@@ -393,6 +394,9 @@ def run_experiment(
     save_experiment_config(config_dict, exp_dir)
 
     # ---- Model ----
+    # Data-driven softmax head width (mapped 4-class or native label count).
+    Config.CLASSES = len(loader.class_names)
+
     model = build_dynamic_cnn(
         filters=filters,
         kernels=kernels,
@@ -545,17 +549,21 @@ if __name__ == "__main__":
           f"| TRAIN={TRAIN_DATASET} | TEST={TEST_DATASET}")
     print("=" * 80)
 
-    # Train-loaders across the active dataset grid (PTB-XL only).
-    # For Chapman the manifest/signal folder is fixed.
+    # Train-loaders across the active dataset grid. The active folder for
+    # each dataset is selected through Config.FOLDER_PTBXL / FOLDER_CHAPMAN
+    # (the Kaggle notebook switches experiments by changing these).
     folder_keys = (
-        Config.ACTIVE_DATASETS
+        [Config.FOLDER_PTBXL]
         if TRAIN_DATASET == "PTBXL"
-        else [CHAPMAN_FOLDER_KEY]
+        else [Config.FOLDER_CHAPMAN]
     )
 
     loaders = {}
     for folder_key in folder_keys:
-        print(f"\n[Data] Resolving splits for {TRAIN_DATASET} @ {folder_key}")
+        fs = cfg.folder_fs(folder_key)
+        Config.INPUT_SHAPE = (cfg.TARGET_LEN[fs], len(cfg.LEAD_INDICES))
+        print(f"\n[Data] Resolving splits for {TRAIN_DATASET} @ {folder_key} "
+              f"(fs={fs} Hz, input={Config.INPUT_SHAPE})")
         loaders[folder_key] = load_training_data(folder_key)
 
     for filter_name, filters in Config.FILTER_SPACES.items():

@@ -20,14 +20,25 @@ graph LR
 ---
 
 ## 📁 1. Data Ingest & Preprocessing
-Raw files from the PTB-XL and Chapman datasets are preprocessed to the unified **250 Hz** target frequency. The output `.npy` signals and diagnostic target mappings are tracked via metadata CSV manifests:
+Raw files from the PTB-XL and Chapman datasets are preprocessed into **100 Hz and 500 Hz** tensor folders
+(`raw` / `cleaned`) under `dataset/resample/`. Cleaning stages are **config-driven**
+(`src/preprocessing/preprocessing.py::CLEANING_FLAGS`): wavelet `db4` denoising and median filtering for
+baseline wander removal, plus a bandpass high-frequency filter using the existing 0.5–45 Hz bounds;
+**z-score normalization is disabled** in the current schedule (code kept, stage off). The unified 250 Hz
+scheme is deferred to a future experiment. Output `.npy` signals and diagnostic target mappings are tracked
+via metadata CSV manifests:
 *   **PTB-XL manifest**: Generated in `dataset/resample/manifest_ptbxl.csv`.
 *   **Chapman manifest**: Generated in `dataset/resample/manifest_chapman.csv`.
 
 ### Training Resolutions Study
-To evaluate the impact of source recording resolution on downstream model performance, the training pipeline isolates two distinct resampling paths:
-1.  **500 Hz to 250 Hz path (Downsampled)**: Preserves maximum high-frequency features. Signals are cleaned at 500 Hz, downsampled to 250 Hz, and standardized.
-2.  **100 Hz to 250 Hz path (Upsampled)**: Cleaned at 100 Hz, then upsampled to 250 Hz. This represents hardware configurations that operate at lower power/frequency baselines.
+To evaluate the impact of source recording resolution on downstream model performance, the training
+pipeline supports two active resolutions per dataset:
+1.  **500 Hz path (native)**: keeps the native 500 Hz sampling for both PTB-XL and Chapman.
+2.  **100 Hz path**: PTB-XL native 100 Hz literals, and Chapman down-sampled from 500 Hz to 100 Hz.
+
+Which folder is used is a **single selection**: `Config.FOLDER_PTBXL` / `Config.FOLDER_CHAPMAN`
+(`experiment_configs.py`), with `INPUT_SHAPE` derived from the folder's sampling rate. The raw
+("murni") folders hold unprocessed tensors; the cleaned folders hold the `CLEANING_FLAGS`-processed signals.
 
 ---
 
