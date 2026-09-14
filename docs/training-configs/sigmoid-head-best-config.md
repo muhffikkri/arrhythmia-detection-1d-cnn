@@ -1,5 +1,10 @@
 # Stable Best Configuration — Multi-label Sigmoid Head
 
+> [!NOTE]
+> **Legacy baseline**: measured under the deferred **250 Hz scheme**
+> (`E2_clean_100_to_250` / `E3_clean_500_to_250`). Keep as a historical
+> architecture/hyperparameter reference; the active scheme uses 100/500 Hz folders.
+
 This is the reference configuration for the **multi-label** arrhythmia scheme
 (Sigmoid head + per-class threshold tuning). The artifacts live inside
 `models/Pure CNN Sigmoid Head/`.

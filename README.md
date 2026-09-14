@@ -12,6 +12,20 @@ A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-
 
 ---
 
+## 📑 Documentation & Changelog
+
+| Resource | Description |
+| :------- | :---------- |
+| [CHANGELOG.md](CHANGELOG.md) | Project changelog (Keep a Changelog format) |
+| [docs/pipeline.md](docs/pipeline.md) | End-to-end experiment pipeline (ingest → training → cross-eval → stats) |
+| [docs/preprocessing.md](docs/preprocessing.md) | DSP specification & active 100/500 Hz folder scheme |
+| [docs/architecture.md](docs/architecture.md) | 1D-CNN architecture reference |
+| [docs/dataset-label-map.md](docs/dataset-label-map.md) | Mapped vs. native label schemes |
+| [docs/training-configs/](docs/training-configs/) | Best-config cards (legacy 250 Hz baseline) |
+| [kaggle/train_all_schemes.ipynb](kaggle/train_all_schemes.ipynb) | Run the whole scheme matrix on Kaggle (GPU) |
+
+---
+
 ## 🚀 Key Features
 
 - **Advanced DSP Preprocessing**: Polyphase FIR resampling plus config-driven cleaning stages (`CLEANING_FLAGS`): Wavelet `db4` adaptive denoising and median filtering for baseline wander removal, and a bandpass high-frequency filter using the existing 0.5–45 Hz bounds. z-score clipping is available but disabled in the current schedule.
@@ -29,10 +43,17 @@ A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-
 ├── dataset/                    # Dataset storage (excluded from git tracking)
 │   ├── Chapman/                # Chapman ECG raw dataset
 │   ├── PTBXL/                  # PTB-XL ECG raw dataset
-│   └── resample/               # Preprocessed signals (.npy) and dataset manifests
+│   └── resample/               # Preprocessed signals (.npy) + manifests
+│       ├── ptbxl_{raw,clean}_{100hz,500hz}/
+│       └── chapman_{raw,clean}_{100hz,500hz}/
 ├── docs/                       # Research documentation and figures
+│   ├── architecture.md         # 1D-CNN model architecture reference
+│   ├── pipeline.md             # End-to-end experiment pipeline
+│   ├── preprocessing.md        # DSP preprocessing specification (100/500 Hz scheme)
 │   ├── dataset-label-map.md    # Label mapping guide (mapped/native schemes)
-│   └── training-configs/       # Best-config reference cards for each scheme
+│   └── training-configs/       # Best-config reference cards (legacy 250 Hz baseline)
+├── kaggle/                     # Kaggle notebook for the full scheme matrix
+│   └── train_all_schemes.ipynb # Single notebook (DATA_SELECTION -> 100/500 Hz folder)
 ├── models/                     # Saved model files (.keras / .h5)
 ├── output/                     # Generated experiment results, logs, and plots
 ├── standalone/                 # Standalone scripts (copyright / external tools)
@@ -45,6 +66,7 @@ A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-
 │   ├── preprocessing/          # Signal cleaning, filtering, and resampling pipelines
 │   ├── training/               # Data loaders, augmentation, mixup, experiment tracker
 │   └── __init__.py
+├── CHANGELOG.md                # Project changelog
 ├── requirements.txt            # Python dependencies
 └── README.md                   # Project documentation
 ```
@@ -83,7 +105,10 @@ pip install -r requirements.txt
 
 ### Step 1: Preprocess Datasets
 
-Process raw signals into standardized resampled (.npy) representations. This will automatically create the validation and training manifests under `dataset/resample/`.
+Process raw signals into resampled (`.npy`) tensors. Both scripts write six folders per dataset
+(**raw** and **cleaned** at **100 Hz** and **500 Hz**) plus a manifests CSV under `dataset/resample/`.
+Cleaning is **config-driven** via `CLEANING_FLAGS` in `src/preprocessing/preprocessing.py`
+(current schedule: wavelet `db4` + median baseline + bandpass 0.5–45 Hz; z-score clip is **off**).
 
 ```powershell
 # Preprocess PTB-XL (Internal train/val/test data)
@@ -92,6 +117,10 @@ python src/preprocessing/proccess_ptbxl.py
 # Preprocess Chapman (External validation data)
 python src/preprocessing/proccess_chapman.py
 ```
+
+The active folder per dataset is selected by `Config.FOLDER_PTBXL` / `Config.FOLDER_CHAPMAN`
+in `src/config/experiment_configs.py` (e.g. `ptbxl_clean_500hz`, `chapman_raw_100hz`). Input shape
+and sampling rate are derived from the selected folder automatically.
 
 ### Step 2: Run Exploratory Data Analysis (EDA)
 
@@ -115,6 +144,8 @@ Execute training with the unified runner. All runs are configured in `src/config
 | `Config.LABEL_SCHEME` | `"mapped"` \| `"native"` | `"mapped"` | Shared 4-class labels vs. dataset-native labels |
 | `Config.TRAIN_DATASET` | `"PTBXL"` \| `"CHAPMAN"` | `"PTBXL"` | Training dataset |
 | `Config.TEST_DATASET` | `"PTBXL"` \| `"CHAPMAN"` | `"PTBXL"` | Test/eval dataset |
+| `Config.FOLDER_PTBXL` | any `SUB_FOLDERS` key | `"ptbxl_clean_500hz"` | Active PTB-XL folder (raw/clean × 100/500 Hz) |
+| `Config.FOLDER_CHAPMAN` | any `SUB_FOLDERS` key | `"chapman_clean_500hz"` | Active Chapman folder (raw/clean × 100/500 Hz) |
 
 ```powershell
 # Multiclass experiment (Softmax head, mapped 4-class labels)
@@ -151,15 +182,33 @@ python src/evaluation/run_statistical_tests.py
 
 This consumes the unified tracker (`output/research_experiments/master_experiment_tracker.csv`) and produces confidence intervals and Wilcoxon pairwise comparison matrices saved in `output/statistical_tests/`. See [`docs/pipeline.md`](docs/pipeline.md) for the full workflow.
 
+### Step 6: Run the Full Scheme Matrix on Kaggle
+
+[kaggle/train_all_schemes.ipynb](kaggle/train_all_schemes.ipynb) trains **all 12 plans** of the
+scheme matrix end-to-end and packs the results history, confusion matrices, cross-dataset evaluation,
+and statistical tests into one ZIP:
+
+| Head      | Label scheme | Valid dataset pairs |
+|-----------|--------------|---------------------|
+| softmax   | mapped       | PTBXL→PTBXL, PTBXL→CHAPMAN, CHAPMAN→PTBXL, CHAPMAN→CHAPMAN |
+| softmax   | native       | PTBXL→PTBXL, CHAPMAN→CHAPMAN |
+| sigmoid   | mapped       | PTBXL→PTBXL, PTBXL→CHAPMAN, CHAPMAN→PTBXL, CHAPMAN→CHAPMAN |
+| sigmoid   | native       | PTBXL→PTBXL, CHAPMAN→CHAPMAN |
+
+A single **`DATA_SELECTION`** cell switches the folder used by all plans
+(`500Hz Cleaned` / `500Hz Raw` / `100Hz Cleaned` / `100Hz Raw`), so the "pure dataset vs. preprocessed
+dataset" experiment can be reproduced by changing just that one variable. Set `RUN_EDA = False` and
+`FAST_MODE = True` for a quick end-to-end smoke test.
+
 ---
 
 ## 📊 Core Configurations
 
 All execution paths, label hierarchies, and hyperparameters are managed under the `src/config/` folder:
 
-- [config.py](arrhythmia-detection-1d-cnn/src/config/config.py): Contains base system paths, auto-directory creation setups, target sampling rates, lead indices, and the canonical 4-class order via `TARGET_CLASSES = ["Normal", "AF", "Takikardia", "Bradikardia"]`.
-- [config_labels.py](arrhythmia-detection-1d-cnn/src/config/config_labels.py): Consolidates label dictionaries for both datasets (`PTBXL_TO_TARGET_MAPPING` and `CHAPMAN_TO_TARGET_MAPPING`) and re-exports the target class order from `config.py`.
-- [experiment_configs.py](arrhythmia-detection-1d-cnn/src/config/experiment_configs.py): Defines the active run (`SCHEME`, `LABEL_SCHEME`, `TRAIN_DATASET`, `TEST_DATASET`) plus grid-search spaces for filters, kernel sizes, dilations, Mixup augmentation strategies, epochs, and learning rates.
-- [model_registry.py](arrhythmia-detection-1d-cnn/src/config/model_registry.py): Central registry of trained models for cross-dataset evaluation.
+- [config.py](src/config/config.py): Contains base system paths, auto-directory creation setups, target sampling rates, lead indices, the folder map (`SUB_FOLDERS`, `FOLDER_FS`), and the canonical 4-class order via `TARGET_CLASSES = ["Normal", "AF", "Takikardia", "Bradikardia"]`.
+- [config_labels.py](src/config/config_labels.py): Consolidates label dictionaries for both datasets (`PTBXL_TO_TARGET_MAPPING` and `CHAPMAN_TO_TARGET_MAPPING`) and re-exports the target class order from `config.py`.
+- [experiment_configs.py](src/config/experiment_configs.py): Defines the active run (`SCHEME`, `LABEL_SCHEME`, `TRAIN_DATASET`, `TEST_DATASET`, `FOLDER_PTBXL`, `FOLDER_CHAPMAN`) plus grid-search spaces for filters, kernel sizes, dilations, Mixup augmentation strategies, epochs, and learning rates.
+- [model_registry.py](src/config/model_registry.py): Central registry of trained models for cross-dataset evaluation.
 
 See [`docs/dataset-label-map.md`](docs/dataset-label-map.md) for the label mapping guide and [`docs/training-configs/`](docs/training-configs/) for the best-config reference cards.

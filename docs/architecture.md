@@ -5,10 +5,14 @@ This document describes the design and layers of the custom deep learning models
 ---
 
 ## 📐 Input Shape & Specifications
-*   **Dimensions**: `(2500, 3)`
+*   **Dimensions**: `(target_len, 3)` where `target_len = TARGET_LEN[fs]` — **1000 samples at 100 Hz** and **5000 samples at 500 Hz**. (The unified 250 Hz scheme with `(2500, 3)` is **deferred**.)
 *   **Time Duration**: 10 seconds of signal.
 *   **Channels**: 3 active channels corresponding to Lead I, Lead II, and Lead III.
-*   **Sampling Rate**: Unified at 250 Hz (calibrated for real-time acquisition with the ADS1293 hardware sensor).
+*   **Sampling Rate**: Driven by the selected folder — the active scheme is **100 Hz and 500 Hz** (`Config.FOLDER_PTBXL` / `Config.FOLDER_CHAPMAN`).
+
+The effective `INPUT_SHAPE` is derived automatically from the folder's sampling rate
+(`config.folder_fs(folder_key)` → `TARGET_LEN[fs]`) by `src/experiments/run_experiment.py`
+before the model is built.
 
 ---
 
@@ -16,7 +20,7 @@ This document describes the design and layers of the custom deep learning models
 
 ```mermaid
 graph TD
-    Input["Input Tensor (2500, 3)"] --> Spatial["1D Spatial Encoder (Residual blocks + MaxPool)"]
+    Input["Input Tensor (target_len x 3)"] --> Spatial["1D Spatial Encoder (Residual blocks + MaxPool)"]
     Spatial --> Temporal["Temporal Modeling Head (Pure CNN, BiLSTM, or Attention)"]
     Temporal --> FC["Fully Connected Projection Layer (128 Units, BN, ReLU, Dropout)"]
     FC --> OutSoftmax["Softmax Output (Multiclass, 4 units)"]
