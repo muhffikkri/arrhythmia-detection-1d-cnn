@@ -1,5 +1,10 @@
 # Stable Best Configuration — Multiclass Softmax Head
 
+> [!NOTE]
+> **Legacy baseline**: measured under the deferred **250 Hz scheme**
+> (`E2_clean_100_to_250` / `E3_clean_500_to_250`). Keep as a historical
+> architecture/hyperparameter reference; the active scheme uses 100/500 Hz folders.
+
 This is the reference configuration that produced the artifacts inside
 `models/Pure CNN Softmax Head/`. It is the **recommended stable baseline** for the
 4-class arrhythmia classification scheme (Normal, AF, Takikardia, Bradikardia).

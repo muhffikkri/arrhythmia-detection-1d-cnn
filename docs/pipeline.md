@@ -58,6 +58,7 @@ All training runs are executed through the unified runner `src/experiments/run_e
 | `LABEL_SCHEME` | `"mapped"` \| `"native"` | Shared 4-class labels vs. each dataset's own diagnostic codes |
 | `TRAIN_DATASET` | `"PTBXL"` \| `"CHAPMAN"` | Training split source |
 | `TEST_DATASET` | `"PTBXL"` \| `"CHAPMAN"` | Test/eval split source (supports cross-dataset) |
+| `FOLDER_PTBXL` / `FOLDER_CHAPMAN` | any `SUB_FOLDERS` key | Active tensor folder per dataset (raw/clean × 100/500 Hz); `INPUT_SHAPE` is derived from the folder's `fs` |
 
 Dataset splits are centralized in `src/training/dataset_loader.py`:
 
