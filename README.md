@@ -20,6 +20,7 @@ A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-
 | [docs/pipeline.md](docs/pipeline.md) | End-to-end experiment pipeline (ingest → training → cross-eval → stats) |
 | [docs/preprocessing.md](docs/preprocessing.md) | DSP specification & active 100/500 Hz folder scheme |
 | [docs/architecture.md](docs/architecture.md) | 1D-CNN architecture reference |
+| [docs/research-progress.md](docs/research-progress.md) | Research roadmap, experiment IDs & reproducibility spec |
 | [docs/training-env.md](docs/training-env.md) | Environment setup & GPU training on Windows / Linux |
 | [docs/dataset-label-map.md](docs/dataset-label-map.md) | Mapped vs. native label schemes |
 | [docs/training-configs/](docs/training-configs/) | Best-config cards (legacy 250 Hz baseline) |
@@ -32,6 +33,7 @@ A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-
 - **Advanced DSP Preprocessing**: Polyphase FIR resampling plus config-driven cleaning stages (`CLEANING_FLAGS`): Wavelet `db4` adaptive denoising and median filtering for baseline wander removal, and a bandpass high-frequency filter using the existing 0.5–45 Hz bounds. z-score clipping is available but disabled in the current schedule.
 - **Dynamic 1D-CNN Factory**: High-performance architecture supporting Stochastic Depth (residual branch dropping), Squeeze-and-Excitation (SE) channel attention, and multiple temporal heads (LSTM, Bidirectional LSTM, and Multi-Head Attention).
 - **Comprehensive Experiment Tracker**: Auto-generated experiment outputs containing JSON configurations, training CSV logs, model summary cards, confusion matrices, and detailed metrics.
+- **Reproducible Experiment Records**: every run writes an 18-field `experiment_metadata.json` with an environment snapshot (OS / Python / TF / GPU / CUDA) plus prediction and confidence distributions, appended to a master `experiment_registry.csv` (see [docs/research-progress.md](docs/research-progress.md)).
 - **Medical-Grade Visualization**: Clinical-style vertical multi-lead plots of misclassified samples alongside raw vs. cleaned ECG morphology steps.
 - **Grad-CAM 1D Explainability**: Attention heatmaps overlaid directly onto ECG signals to highlight clinically significant QRS complexes and morphological features.
 - **Statistical Significance Analysis**: Automatic generation of Wilcoxon signed-rank significance tests and 95% Confidence Intervals (CI) comparing F1 scores between experimental runs.
