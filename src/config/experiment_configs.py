@@ -27,6 +27,30 @@ class Config:
     LABEL_SCHEME = "native"
 
     # =========================================================
+    # EXPERIMENT ID (RESEARCH-PHASE RECORDING)
+    # =========================================================
+    # Unique research-phase experiment ID per docs/research-progress.md,
+    # e.g. RAW_PTBXL_3L, CLEAN_PTBXL_3L, CROSS_PTBXL_TO_CHAPMAN.
+    # When None the runner infers it from TRAIN/TEST dataset + folder.
+    EXPERIMENT_ID = None
+
+    # Model version recorded in every experiment record (reproducibility).
+    MODEL_VERSION = "cnn_v1"
+
+    # Free-text notes / interpretation stored in the experiment record.
+    EXPERIMENT_NOTE = ""
+    EXPERIMENT_INTERPRETATION = ""
+
+    # =========================================================
+    # MULTI-LABEL THRESHOLD TUNING (SKIPPED FOR NOW)
+    # =========================================================
+    # The sigmoid threshold-tuning code is kept but DISABLED while the
+    # research runs the softmax multiclass focus. When True, the sigmoid
+    # track tunes per-class thresholds (as before); when False the sigmoid
+    # track uses a flat 0.5 threshold.
+    THRESHOLD_TUNING = False
+
+    # =========================================================
     # TRAIN / TEST DATASET SELECTION (CROSS-DATASET MATRIX)
     # =========================================================
     # Options: "PTBXL" | "CHAPMAN"

@@ -21,6 +21,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-09-16
+
+### Added
+- **Experiment metadata infrastructure** (`src/training/experiment_metadata.py`): `get_environment_metadata()`
+  (OS / Python / TF / CUDA / GPU snapshot), `infer_experiment_id()` / `build_experiment_id()`,
+  `build_experiment_record()`, `write_experiment_metadata()`, `append_experiment_registry()`,
+  `save_prediction_distributions()`.
+- **Experiment records in the runner**: `run_experiment.py` now emits `experiment_metadata.json`
+  (18-field schema + environment) per run, writes per-class `prediction_distribution.csv` and
+  `confidence_distribution.csv`, and appends a flattened row to `output/experiments/experiment_registry.csv`.
+- **Research roadmap document** (`docs/research-progress.md`): Phase 0–7 status table, experiment-ID
+  spec, record schema, reproducibility contract, experiment flow diagram, versioning policy.
+
+### Changed
+- **Config**: new `EXPERIMENT_ID`, `MODEL_VERSION`, `EXPERIMENT_NOTE`, `EXPERIMENT_INTERPRETATION`,
+  and `THRESHOLD_TUNING` fields. Experiment ID is auto-inferred from dataset + folder when unset.
+- **Multi-label threshold tuning gated off**: `THRESHOLD_TUNING=False` (sigmoid track now uses a flat
+  0.5 threshold); the tuning code path is preserved and re-enabled by the flag. Research focuses on the
+  softmax multiclass track.
+
+---
+
 ## [1.3.0] - 2026-09-16
 
 ### Added

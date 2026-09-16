@@ -57,6 +57,16 @@ from src.models.loss_factory import get_loss_function
 from src.evaluation.evaluator import calculate_ml_metrics
 from src.training.data_utils import create_tf_dataset
 from src.training.dataset_loader import DatasetLoader
+from src.training.experiment_metadata import (
+    build_experiment_id,
+    get_environment_metadata,
+    build_experiment_record,
+    write_experiment_metadata,
+    append_experiment_registry,
+    save_prediction_distributions,
+)
+
+from src.preprocessing import preprocessing as dsp
 
 from src.training.tracker import (
     create_experiment_dir,
@@ -123,6 +133,8 @@ LABEL_SCHEME = getattr(Config, "LABEL_SCHEME", "mapped").lower()
 TRAIN_DATASET = getattr(Config, "TRAIN_DATASET", "PTBXL").upper()
 TEST_DATASET = getattr(Config, "TEST_DATASET", "PTBXL").upper()
 IS_CROSS_DATASET = TRAIN_DATASET != TEST_DATASET
+
+EXPERIMENT_ID = getattr(Config, "EXPERIMENT_ID", None)
 
 if IS_CROSS_DATASET and LABEL_SCHEME != "mapped":
     raise ValueError(
@@ -376,7 +388,10 @@ def run_experiment(
     filters,
     kernels,
     dilations,
-    temporal_mode
+    temporal_mode,
+    filter_name=None,
+    kernel_name=None,
+    dilation_name=None
 ):
     print("\n" + "=" * 80)
     print(f"RUNNING ({SCHEME} / {LABEL_SCHEME}): {experiment_name}")
@@ -414,6 +429,25 @@ def run_experiment(
         "oversample_method": getattr(Config, "OVERSAMPLE_METHOD", None),
         "oversample_strategy": str(getattr(Config, "OVERSAMPLE_STRATEGY", None))
     }
+
+    config_dict["experiment_id"] = EXPERIMENT_ID
+    config_dict["environment"] = get_environment_metadata()
+    config_dict["dataset_version"] = loader.folder_key
+    config_dict["preprocessing_version"] = (
+        dsp.PIPELINE_VERSION + " - " + dsp.cleaning_pipeline_description()
+    )
+    config_dict["lead_configuration"] = {
+        "leads": list(cfg.LEAD_NAMES),
+        "indices": list(cfg.LEAD_INDICES),
+    }
+    config_dict["label_configuration"] = {
+        "scheme": LABEL_SCHEME,
+        "class_names": list(loader.class_names),
+        "num_classes": len(loader.class_names),
+    }
+    config_dict["model_version"] = getattr(Config, "MODEL_VERSION", "cnn_v1")
+    config_dict["random_seed"] = 42
+    config_dict["threshold_tuning"] = getattr(Config, "THRESHOLD_TUNING", False)
     save_experiment_config(config_dict, exp_dir)
 
     # ---- Model ----
@@ -497,7 +531,10 @@ def run_experiment(
 
     # ---- Evaluation ----
     if SCHEME == "sigmoid":
-        thresholds = perform_threshold_tuning(model, X_val, y_val, loader.class_names)
+        if getattr(Config, "THRESHOLD_TUNING", False):
+            thresholds = perform_threshold_tuning(model, X_val, y_val, loader.class_names)
+        else:
+            thresholds = [0.5] * len(loader.class_names)
         metrics, y_pred_bin, y_prob = evaluate_sigmoid(
             model, np.array(X_eval, dtype=np.float32), np.array(y_eval, dtype=np.float32),
             thresholds, loader.class_names
@@ -555,6 +592,87 @@ def run_experiment(
     master_csv_path = os.path.join(ROOT_EXP_DIR, Config.MASTER_TRACKER_CSV)
     update_master_tracker(metrics, master_csv_path)
 
+    # ---- Experiment record + registry ----
+    metrics_path = os.path.join(exp_dir, "metrics.csv")
+    cm_path = os.path.join(exp_dir, "confusion_matrix.png")
+
+    if SCHEME == "sigmoid":
+        y_true_idx = np.argmax(np.array(y_eval, dtype=np.float32), axis=1)
+        y_pred_idx = np.argmax(y_prob, axis=1)
+    else:
+        y_true_idx = y_true
+        y_pred_idx = y_pred
+
+    pred_path, conf_path = save_prediction_distributions(
+        exp_dir, y_true_idx, y_pred_idx, y_prob, loader.class_names
+    )
+
+    metrics_summary = {
+        k: metrics[k] for k in (
+            "Scheme", "Label_Scheme", "Train_Dataset", "Test_Dataset",
+            "Balanced_Accuracy", "Macro_F1", "Weighted_F1",
+            "Macro_Recall", "Subset_Accuracy", "Total_Params",
+            "Model_Size_MB"
+        ) if k in metrics
+    }
+
+    training_configuration = {
+        "batch_size": Config.BATCH_SIZE,
+        "epochs": Config.EPOCHS,
+        "learning_rate": Config.LEARNING_RATE,
+        "optimizer": Config.OPTIMIZER,
+        "loss": "Focal Loss" if SCHEME == "softmax" else "BinaryCrossentropy",
+        "label_smoothing": Config.LABEL_SMOOTHING,
+        "use_augmentation": Config.USE_AUGMENTATION,
+        "use_mixup": Config.USE_MIXUP,
+        "mixup_alpha": Config.MIXUP_ALPHA,
+        "use_cosine_decay": Config.USE_COSINE_DECAY,
+        "class_weight": class_weight is not None,
+        "threshold_tuning": getattr(Config, "THRESHOLD_TUNING", False),
+        "undersample_ratio": getattr(Config, "UNDERSAMPLE_RATIO", None),
+        "oversample_method": getattr(Config, "OVERSAMPLE_METHOD", None),
+        "oversample_strategy": str(getattr(Config, "OVERSAMPLE_STRATEGY", None)),
+    }
+
+    record = build_experiment_record(
+        experiment_id=EXPERIMENT_ID,
+        dataset_train=TRAIN_DATASET,
+        dataset_test=TEST_DATASET,
+        folder_key=loader.folder_key,
+        sampling_rate=loader.fs,
+        signal_len=Config.INPUT_SHAPE[0],
+        label_scheme=LABEL_SCHEME,
+        class_names=loader.class_names,
+        model_version=getattr(Config, "MODEL_VERSION", "cnn_v1"),
+        arch_config={
+            "filters_name": filter_name,
+            "kernels_name": kernel_name,
+            "dilations_name": dilation_name,
+            "temporal_mode": temporal_mode,
+            "filters": list(filters),
+            "kernels": list(kernels),
+            "dilations": list(dilations),
+        },
+        random_seed=42,
+        training_configuration=training_configuration,
+        checkpoint=os.path.relpath(model_path, ROOT_EXP_DIR),
+        metrics_path=os.path.relpath(metrics_path, ROOT_EXP_DIR),
+        metrics_summary=metrics_summary,
+        confusion_matrix_path=os.path.relpath(cm_path, ROOT_EXP_DIR),
+        prediction_distribution_path=os.path.relpath(pred_path, ROOT_EXP_DIR),
+        confidence_distribution_path=os.path.relpath(conf_path, ROOT_EXP_DIR),
+        notes=getattr(Config, "EXPERIMENT_NOTE", ""),
+        interpretation=getattr(Config, "EXPERIMENT_INTERPRETATION", ""),
+        status="completed",
+    )
+
+    metadata_path = write_experiment_metadata(exp_dir, record)
+    registry_path = append_experiment_registry(
+        os.path.join(ROOT_EXP_DIR, "experiment_registry.csv"), record
+    )
+    print(f"[Record] experiment_id={EXPERIMENT_ID} | metadata={metadata_path}")
+    print(f"[Record] registry={registry_path}")
+
     print("\nExperiment Finished")
     del model
     K.clear_session()
@@ -571,6 +689,14 @@ if __name__ == "__main__":
     print(f"UNIFIED EXPERIMENT RUNNER | SCHEME={SCHEME} | LABEL={LABEL_SCHEME} "
           f"| TRAIN={TRAIN_DATASET} | TEST={TEST_DATASET}")
     print("=" * 80)
+
+    # Resolve experiment ID (phase-level): infer from dataset+folder if not set.
+    train_folder = Config.FOLDER_PTBXL if TRAIN_DATASET == "PTBXL" else Config.FOLDER_CHAPMAN
+    EXPERIMENT_ID = build_experiment_id(
+        TRAIN_DATASET, TEST_DATASET, train_folder,
+        override=EXPERIMENT_ID
+    )
+    print(f"[ExpID] {EXPERIMENT_ID}")
 
     # Train-loaders across the active dataset grid. The active folder for
     # each dataset is selected through Config.FOLDER_PTBXL / FOLDER_CHAPMAN
@@ -615,7 +741,10 @@ if __name__ == "__main__":
                             filters=filters,
                             kernels=kernels,
                             dilations=dilations,
-                            temporal_mode=temporal_mode
+                            temporal_mode=temporal_mode,
+                            filter_name=filter_name,
+                            kernel_name=kernel_name,
+                            dilation_name=dilation_name,
                         )
 
     print("\nALL EXPERIMENTS FINISHED")
