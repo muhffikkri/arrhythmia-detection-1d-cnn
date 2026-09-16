@@ -169,6 +169,17 @@ for ecg_id, row in tqdm(
     if target_cls is None:
         continue
 
+    # Native (highest-confidence SCP code) label: makes the manifest
+    # self-contained so LABEL_SCHEME="native" does not need the raw
+    # ptbxl_database.csv at training time (e.g. cleaned-only Kaggle runs).
+    primary_scp = None
+
+    if isinstance(row['scp_codes'], dict) and row['scp_codes']:
+
+        primary_scp = str(
+            max(row['scp_codes'], key=row['scp_codes'].get)
+        )
+
     # ================================================================
     # CORE METADATA
     # ================================================================
@@ -423,6 +434,8 @@ for ecg_id, row in tqdm(
         # ============================================================
 
         "target_class": target_cls,
+
+        "native_label": primary_scp,
 
         # ============================================================
         # SPLIT

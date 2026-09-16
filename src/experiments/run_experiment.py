@@ -85,6 +85,29 @@ def set_global_seeds(seed=42):
 set_global_seeds(42)
 
 # =====================================================================
+# CROSS-PLATFORM GPU / DEVICE CONFIG
+# =====================================================================
+
+def configure_hardware():
+    """Detect the device (CPU-only or GPU) on Windows or Linux and enable
+    dynamic GPU memory growth so training does not exhaust VRAM."""
+    print(f"[Env] OS: {sys.platform} | Python {sys.version.split()[0]} | TF {tf.__version__}")
+    gpus = tf.config.list_physical_devices("GPU")
+    if gpus:
+        try:
+            for g in gpus:
+                tf.config.experimental.set_memory_growth(g, True)
+        except RuntimeError as e:
+            print(f"[Env] set_memory_growth error: {e}")
+        print(f"[Env] {len(gpus)} GPU device(s) found:")
+        for g in gpus:
+            print("   *", g.name)
+    else:
+        print("[Env] No GPU detected - TensorFlow will run on CPU.")
+
+configure_hardware()
+
+# =====================================================================
 # OUTPUT ROOT
 # =====================================================================
 

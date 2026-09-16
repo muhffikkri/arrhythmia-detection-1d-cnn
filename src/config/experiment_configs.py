@@ -24,7 +24,7 @@ class Config:
     #   for cross-dataset training/evaluation (Chapman <-> PTB-XL).
     # - "native": labels use the dataset's original names (PTB-XL SCP codes,
     #   Chapman SNOMED-CT codes) read straight from the manifest; no mapping.
-    LABEL_SCHEME = "mapped"
+    LABEL_SCHEME = "native"
 
     # =========================================================
     # TRAIN / TEST DATASET SELECTION (CROSS-DATASET MATRIX)
