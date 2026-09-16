@@ -10,12 +10,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Upload the preprocessed tensors (raw + cleaned, 100/500 Hz) to Kaggle so every scheme can run
-  without re-running DSP on the raw data.
-- Reproduce the **pure dataset vs. preprocessed dataset** training comparison by toggling only the
-  `DATA_SELECTION` cell in `kaggle/train_all_schemes.ipynb`.
+- Run the research phases: (1) raw baselines with all classes + 3 leads, (2) cleaned comparison,
+  (3) in-domain & direct cross-dataset experiments E1–E4 on cleaned tensors, (4) re-train on the
+  subset of classes that are clinically detectable with 3 leads, (5) rule-based verification for
+  false positives/negatives and derived leads (aVR/aVL/aVF) as auxiliary input.
+- Upload the **raw** and **cleaned** tensor datasets as two separate Kaggle datasets; run the notebook
+  "Save Version" against the relevant dataset URL.
 - Re-enable the unified **250 Hz** scheme (`GENERATE_SCHEMES["250hz"] = True`) once the 100/500 Hz
   experiments are finalized (hardware-aligned to the ADS1293 AFE).
+
+---
+
+## [1.3.0] - 2026-09-16
+
+### Added
+- **Cross-platform training support** (`docs/training-env.md`): full setup for native Windows
+  (CPU), WSL2/Ubuntu (GPU), and Linux (GPU). Since TF 2.11 the pip `tensorflow` wheel is
+  self-contained on Linux; native Windows remains CPU-only.
+- **GPU auto-detection in the runner**: `run_experiment.py` prints an `[Env]` device banner
+  (OS / TF version / GPU list) and enables `set_memory_growth` on every GPU — single command works
+  on both Windows and Linux.
+- **Self-contained native labels**: the preprocessing scripts now embed a `native_label` column in
+  `manifest_{ptbxl,chapman}.csv` (primary SCP code / primary SNOMED-CT code). `DatasetLoader` uses it
+  for `LABEL_SCHEME="native"` with a fallback to the legacy database merge — so the cleaned-only
+  Kaggle upload can run the all-classes native baseline without `ptbxl_database.csv`.
+
+### Changed
+- **Kaggle notebook**: the mount cell now merges **every** attached `/kaggle/input/*` bundle, so the
+  **raw** and **cleaned** datasets can be released as two separate Kaggle datasets and attached
+  independently ("Save Version" per dataset URL). Readiness auto-detects cleaned-only / raw-only /
+  both and skips or runs preprocessing accordingly. How-to and intro cells document the split uploads.
 
 ---
 

@@ -79,7 +79,12 @@ def resolve_label(df, dataset, label_scheme):
             f"Unknown LABEL_SCHEME '{label_scheme}'. Use 'mapped' or 'native'."
         )
 
-    if dataset == "PTBXL":
+    if "native_label" in df.columns:
+        # Self-contained manifests (preprocessing >= v6.0) already embed the
+        # native label, so raw dataset files are not required at training time.
+        df["label"] = df["native_label"].astype(str)
+        df = df[df["label"].notna() & (df["label"].astype(str).str != "None")].reset_index(drop=True)
+    elif dataset == "PTBXL":
         df = df.merge(
             _load_ptbxl_database()[["ecg_id", "scp_codes"]],
             on="ecg_id",

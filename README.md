@@ -14,12 +14,13 @@ A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-
 
 ## 📑 Documentation & Changelog
 
-| Resource | Description |
-| :------- | :---------- |
+| Resource                                                         | Description                                                             |
+| :--------------------------------------------------------------- | :---------------------------------------------------------------------- |
 | [CHANGELOG.md](CHANGELOG.md) | Project changelog (Keep a Changelog format) |
 | [docs/pipeline.md](docs/pipeline.md) | End-to-end experiment pipeline (ingest → training → cross-eval → stats) |
 | [docs/preprocessing.md](docs/preprocessing.md) | DSP specification & active 100/500 Hz folder scheme |
 | [docs/architecture.md](docs/architecture.md) | 1D-CNN architecture reference |
+| [docs/training-env.md](docs/training-env.md) | Environment setup & GPU training on Windows / Linux |
 | [docs/dataset-label-map.md](docs/dataset-label-map.md) | Mapped vs. native label schemes |
 | [docs/training-configs/](docs/training-configs/) | Best-config cards (legacy 250 Hz baseline) |
 | [kaggle/train_all_schemes.ipynb](kaggle/train_all_schemes.ipynb) | Run the whole scheme matrix on Kaggle (GPU) |
@@ -75,29 +76,33 @@ A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-
 
 ## ⚙️ Installation & Setup
 
-### 1. Prerequisites
+The repo runs identically on **Windows (PowerShell)** and **Linux (bash)**. Full detail:
+[`docs/training-env.md`](docs/training-env.md).
 
-Ensure you have Python 3.10+ installed.
-
-### 2. Virtual Environment Setup
-
-Clone the repository and initialize a virtual environment:
+### Windows (PowerShell)
 
 ```powershell
-# Create virtual environment
 python -m venv venv
-
-# Activate on Windows Powershell
 .\venv\Scripts\Activate.ps1
-```
-
-### 3. Install Dependencies
-
-Install all required packages from `requirements.txt`:
-
-```bash
 pip install -r requirements.txt
 ```
+
+> `pip tensorflow` on native Windows is **CPU-only**. For **GPU** speed, train inside
+> **WSL2 + Ubuntu** (see `docs/training-env.md`) — the code needs no changes.
+
+### Linux (bash) — recommended for GPU
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Verify GPU
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+```
+
+`run_experiment.py` auto-detects CPU/GPU, prints the device banner, and enables GPU
+memory growth — no flags required.
 
 ---
 
@@ -138,14 +143,14 @@ python src/analysis/eda_quantitative_audit.py
 
 Execute training with the unified runner. All runs are configured in `src/config/experiment_configs.py`:
 
-| Config field | Values | Default | Meaning |
-|---|---|---|---|
-| `Config.SCHEME` | `"softmax"` \| `"sigmoid"` | `"softmax"` | Classification head (multiclass vs. multi-label) |
-| `Config.LABEL_SCHEME` | `"mapped"` \| `"native"` | `"mapped"` | Shared 4-class labels vs. dataset-native labels |
-| `Config.TRAIN_DATASET` | `"PTBXL"` \| `"CHAPMAN"` | `"PTBXL"` | Training dataset |
-| `Config.TEST_DATASET` | `"PTBXL"` \| `"CHAPMAN"` | `"PTBXL"` | Test/eval dataset |
-| `Config.FOLDER_PTBXL` | any `SUB_FOLDERS` key | `"ptbxl_clean_500hz"` | Active PTB-XL folder (raw/clean × 100/500 Hz) |
-| `Config.FOLDER_CHAPMAN` | any `SUB_FOLDERS` key | `"chapman_clean_500hz"` | Active Chapman folder (raw/clean × 100/500 Hz) |
+| Config field            | Values                     | Default                 | Meaning                                          |
+| ----------------------- | -------------------------- | ----------------------- | ------------------------------------------------ |
+| `Config.SCHEME`         | `"softmax"` \| `"sigmoid"` | `"softmax"`             | Classification head (multiclass vs. multi-label) |
+| `Config.LABEL_SCHEME`   | `"mapped"` \| `"native"`   | `"mapped"`              | Shared 4-class labels vs. dataset-native labels  |
+| `Config.TRAIN_DATASET`  | `"PTBXL"` \| `"CHAPMAN"`   | `"PTBXL"`               | Training dataset                                 |
+| `Config.TEST_DATASET`   | `"PTBXL"` \| `"CHAPMAN"`   | `"PTBXL"`               | Test/eval dataset                                |
+| `Config.FOLDER_PTBXL`   | any `SUB_FOLDERS` key      | `"ptbxl_clean_500hz"`   | Active PTB-XL folder (raw/clean × 100/500 Hz)    |
+| `Config.FOLDER_CHAPMAN` | any `SUB_FOLDERS` key      | `"chapman_clean_500hz"` | Active Chapman folder (raw/clean × 100/500 Hz)   |
 
 ```powershell
 # Multiclass experiment (Softmax head, mapped 4-class labels)
@@ -188,17 +193,40 @@ This consumes the unified tracker (`output/research_experiments/master_experimen
 scheme matrix end-to-end and packs the results history, confusion matrices, cross-dataset evaluation,
 and statistical tests into one ZIP:
 
-| Head      | Label scheme | Valid dataset pairs |
-|-----------|--------------|---------------------|
-| softmax   | mapped       | PTBXL→PTBXL, PTBXL→CHAPMAN, CHAPMAN→PTBXL, CHAPMAN→CHAPMAN |
-| softmax   | native       | PTBXL→PTBXL, CHAPMAN→CHAPMAN |
-| sigmoid   | mapped       | PTBXL→PTBXL, PTBXL→CHAPMAN, CHAPMAN→PTBXL, CHAPMAN→CHAPMAN |
-| sigmoid   | native       | PTBXL→PTBXL, CHAPMAN→CHAPMAN |
+| Head    | Label scheme | Valid dataset pairs                                        |
+| ------- | ------------ | ---------------------------------------------------------- |
+| softmax | mapped       | PTBXL→PTBXL, PTBXL→CHAPMAN, CHAPMAN→PTBXL, CHAPMAN→CHAPMAN |
+| softmax | native       | PTBXL→PTBXL, CHAPMAN→CHAPMAN                               |
+| sigmoid | mapped       | PTBXL→PTBXL, PTBXL→CHAPMAN, CHAPMAN→PTBXL, CHAPMAN→CHAPMAN |
+| sigmoid | native       | PTBXL→PTBXL, CHAPMAN→CHAPMAN                               |
 
 A single **`DATA_SELECTION`** cell switches the folder used by all plans
 (`500Hz Cleaned` / `500Hz Raw` / `100Hz Cleaned` / `100Hz Raw`), so the "pure dataset vs. preprocessed
 dataset" experiment can be reproduced by changing just that one variable. Set `RUN_EDA = False` and
 `FAST_MODE = True` for a quick end-to-end smoke test.
+
+---
+
+## 🧪 Current Research Phases
+
+All experimentation uses **3 leads** (I, II, III). The phases map 1-to-1 onto the
+existing configuration knobs — no code changes required:
+
+| Phase | Description | Config (experiment_configs.py) |
+| :---- | :---------- | :------------------------------ |
+| 1. Baseline (raw, all classes) | Train PTB-XL & Chapman separately on the raw tensors with `LABEL_SCHEME="native"` (all available classes) | `FOLDER_*=*_raw_500hz`, `LABEL_SCHEME="native"`, `TRAIN=TEST` |
+| 2. Cleaned comparison | Same, but on cleaned tensors (`wavelet db4 + median baseline + bandpass`, z-score off) | `FOLDER_*=*_clean_500hz`, `LABEL_SCHEME="native"`, `TRAIN=TEST` |
+| 3. In-domain + cross-dataset (mapped) | E1 PTBXL→PTBXL, E2 CHAPMAN→CHAPMAN, E3 PTBXL→CHAPMAN, E4 CHAPMAN→PTBXL on cleaned folders | `FOLDER_*=*_clean_500hz`, `LABEL_SCHEME="mapped"`, `TRAIN`/`TEST` per experiment |
+| 4. Clinically-detectable subset | Retrain on cleaned with only the classes reliably detectable with 3 leads | class subset filtering (planned) |
+| 5. Verification & derived leads | Rule-based verification for FP/FN, plus aVR/aVL/aVF as auxiliary input | planned |
+
+Research questions (from the plan): Is the failure caused by **domain shift**? Is the
+**3-lead** configuration robust? Do **derived leads** help? Does the same preprocessing fit both
+datasets? Can **rule-based verification** correct specific false positives/negatives? Is the model
+learning **physiological vs. dataset-specific** features?
+
+> The Kaggle notebook runs every phase-1/2/3 combination via `DATA_SELECTION` (raw/clean × 100/500 Hz)
+> + the scheme matrix; currently `LABEL_SCHEME="mapped"` is required for cross-dataset plans.
 
 ---
 

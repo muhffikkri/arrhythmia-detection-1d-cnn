@@ -337,6 +337,12 @@ for hea_path in tqdm(hea_files, desc="Processing Chapman"):
             "target_class": target_cls,
             "diagnostic_string": dx_str,
 
+            # Native (primary SNOMED-CT code) label: makes the manifest
+            # self-contained for cleaned-only Kaggle runs with
+            # LABEL_SCHEME="native" (drops the trainer dependency on the
+            # raw .hea files).
+            "native_label": str(dx_str).split(",")[0].strip(),
+
             # ---------------------------------------------
             # SHAPE
             # ---------------------------------------------
