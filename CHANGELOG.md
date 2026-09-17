@@ -10,14 +10,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Run the research phases: (1) raw baselines with all classes + 3 leads, (2) cleaned comparison,
-  (3) in-domain & direct cross-dataset experiments E1–E4 on cleaned tensors, (4) re-train on the
-  subset of classes that are clinically detectable with 3 leads, (5) rule-based verification for
-  false positives/negatives and derived leads (aVR/aVL/aVF) as auxiliary input.
+- Run the research phases: (3) in-domain & direct cross-dataset experiments E1–E4 on cleaned tensors,
+  (4) re-train on the subset of classes that are clinically detectable with 3 leads,
+  (5) rule-based verification for false positives/negatives and derived leads (aVR/aVL/aVF) as auxiliary input.
 - Upload the **raw** and **cleaned** tensor datasets as two separate Kaggle datasets; run the notebook
   "Save Version" against the relevant dataset URL.
 - Re-enable the unified **250 Hz** scheme (`GENERATE_SCHEMES["250hz"] = True`) once the 100/500 Hz
   experiments are finalized (hardware-aligned to the ADS1293 AFE).
+
+---
+
+## [1.5.0] - 2026-09-17
+
+### Added
+- **Phase 1 & 2 baseline notebook** (`kaggle/train_all_schemes.ipynb`): the notebook is now the
+  folder-driven **Phase 1 (RAW baselines)** + **Phase 2 (CLEANED comparison)** runner. Picking a folder
+  (`DATA_SELECTION` = `500Hz`/`100Hz`, `RUN_PHASES` toggles) remaps every phase; empty folders are
+  auto-skipped, so attaching only the cleaned dataset still runs Phase 2 and only raw runs Phase 1.
+- **RAW vs CLEANED phase comparison**: a new post-processing cell writes `phase_comparison.csv` + PNG
+  (best Macro-F1 / balanced accuracy per dataset and sampling rate, with `Delta_Macro_F1`).
+
+### Changed
+- **Notebook plans**: narrowed to the softmax + native (all-class) in-domain baselines for Phases 1–2;
+  sigmoid and cross-dataset plans remain gated for later phases. Per-phase folder selection replaces the
+  old copy-paste scheme matrix.
+- **README** and `docs/research-progress.md`: Phase 1–2 rows marked *notebook ready*.
 
 ---
 
@@ -30,7 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `save_prediction_distributions()`.
 - **Experiment records in the runner**: `run_experiment.py` now emits `experiment_metadata.json`
   (18-field schema + environment) per run, writes per-class `prediction_distribution.csv` and
-  `confidence_distribution.csv`, and appends a flattened row to `output/experiments/experiment_registry.csv`.
+  `confidence_distribution.csv`, and appends a flattened row to
+  `output/research_experiments/experiment_registry.csv`.
 - **Research roadmap document** (`docs/research-progress.md`): Phase 0–7 status table, experiment-ID
   spec, record schema, reproducibility contract, experiment flow diagram, versioning policy.
 
