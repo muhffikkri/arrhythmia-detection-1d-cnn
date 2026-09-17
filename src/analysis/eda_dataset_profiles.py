@@ -195,7 +195,8 @@ for key in ACTIVE_FOLDERS:
     n_missing = int((~has_path).sum())
     n_on_disk = 0
     for p in dem.loc[has_path, path_col]:
-        if isinstance(p, str) and os.path.exists(p):
+        resolved = cfg.resolve_path(p)
+        if resolved is not None and os.path.exists(resolved):
             n_on_disk += 1
 
     cls_counts = dem.loc[has_path, "label"].value_counts()

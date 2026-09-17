@@ -67,6 +67,35 @@ DATASET_DIR,
 
 # =========================================================
 
+# PORTABLE (RELATIVE) PATHS FOR MANIFESTS
+
+# =========================================================
+# Manifest columns must store paths RELATIVE to BASE_DIR so the
+# dataset/resample folder can be moved or uploaded (e.g. to Kaggle)
+# without rewriting the CSVs. Use to_relative_path() when writing and
+# resolve_path() when reading.
+
+def to_relative_path(path):
+    """Absolute path -> portable path relative to BASE_DIR (POSIX sep)."""
+    if path is None:
+        return None
+    try:
+        rel = os.path.relpath(os.path.abspath(str(path)), BASE_DIR)
+    except (TypeError, ValueError):
+        return path
+    return rel.replace(os.sep, "/")
+
+
+def resolve_path(path):
+    """Manifest path -> absolute path (relative entries resolved vs BASE_DIR)."""
+    if not isinstance(path, str) or path in ("", "nan", "None"):
+        return None
+    if os.path.isabs(path):
+        return path
+    return os.path.join(BASE_DIR, *path.replace("\\", "/").split("/"))
+
+# =========================================================
+
 # DATA FOLDERS
 
 # =========================================================

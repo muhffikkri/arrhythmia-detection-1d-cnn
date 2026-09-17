@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   experiments are finalized (hardware-aligned to the ADS1293 AFE).
 
 ### Changed
+- **Portable manifests**: the `path_*` columns in `manifest_ptbxl.csv` / `manifest_chapman.csv` now
+  store paths **relative to the project root** (`config.BASE_DIR`) via `config.to_relative_path()`,
+  so `dataset/resample` can be uploaded to Kaggle and mounted elsewhere without rewriting the CSVs;
+  `config.resolve_path()` reads them back (EDA resolves automatically). The deferred **250 Hz**
+  resampling scheme is retained behind `GENERATE_SCHEMES["250hz"] = False`.
 - **Config-driven native class selection added**: `USE_NATIVE_ALL_CLASSES=True` (default) makes
   `LABEL_SCHEME="native"` use **every** class in the manifest (3 leads); `NATIVE_CLASS_SELECTION`
   (`all`/`allowlist`/`map`), `NATIVE_CLASS_ALLOWLIST`, `NATIVE_CLASS_MAPPING` and `MIN_CLASS_COUNT`
