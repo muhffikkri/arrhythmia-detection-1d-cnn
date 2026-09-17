@@ -61,12 +61,50 @@ def _primary_dx_code(dx_raw):
     return parts[0] if parts else None
 
 
+def _apply_native_selection(df):
+    """
+    Config-driven native-class selection applied AFTER label resolution.
+
+    - Config.USE_NATIVE_ALL_CLASSES=True -> no selection, every class kept.
+    - Otherwise NATIVE_CLASS_SELECTION decides:
+        "all"       -> keep every class
+        "allowlist" -> keep only NATIVE_CLASS_ALLOWLIST codes
+        "map"       -> rewrite codes through NATIVE_CLASS_MAPPING
+    This is the future hook that lets experiments restrict / remap classes
+    purely from config, keeping training and EDA in sync.
+    """
+    all_classes = getattr(Config, "USE_NATIVE_ALL_CLASSES", True)
+    if all_classes:
+        return df
+
+    selection = getattr(Config, "NATIVE_CLASS_SELECTION", "all")
+    if selection == "all":
+        return df
+    if selection == "allowlist":
+        allow = list(getattr(Config, "NATIVE_CLASS_ALLOWLIST", []))
+        if allow:
+            df = df[df["label"].astype(str).isin(allow)].reset_index(drop=True)
+        return df
+    if selection == "map":
+        mapping = getattr(Config, "NATIVE_CLASS_MAPPING", {})
+        if mapping:
+            df["label"] = df["label"].astype(str).map(
+                lambda x: mapping.get(x, x)
+            )
+        return df
+    raise ValueError(
+        f"Unknown NATIVE_CLASS_SELECTION '{selection}'. "
+        "Use 'all', 'allowlist' or 'map'."
+    )
+
+
 def resolve_label(df, dataset, label_scheme):
     """
     Build the resolved `label` column and the `class_names` list.
 
     mapped -> cfg.CLASS_NAMES (dropped "Others" rows).
-    native -> dataset-native primary label (SCP code / SNOMED code).
+    native -> dataset-native primary label (SCP code / SNOMED code),
+    optionally restricted/remapped through Config-driven native selection.
     """
     if label_scheme == "mapped":
         df = df[df["target_class"].isin(cfg.CLASS_NAMES)].reset_index(drop=True)
@@ -98,6 +136,7 @@ def resolve_label(df, dataset, label_scheme):
     else:
         raise ValueError(f"Unknown dataset '{dataset}'. Use 'PTBXL' or 'CHAPMAN'.")
 
+    df = _apply_native_selection(df)
     class_names = sorted(df["label"].astype(str).unique().tolist())
     return df, class_names
 
@@ -123,13 +162,16 @@ def load_manifest(dataset, label_scheme):
 # SPLIT ASSIGNMENT
 # =====================================================================
 
-def assign_splits(df, dataset, label_col="label", min_count=8):
+def assign_splits(df, dataset, label_col="label", min_count=None):
     """
     Assign a 'split' column (train/val/test) to every row.
     PTB-XL uses its stratified folds; Chapman uses a stratified random split.
     Classes present in fewer than `min_count` rows are dropped with a warning
     (they cannot be stratified into train/val/test meaningfully).
+    min_count defaults to Config.MIN_CLASS_COUNT when not provided.
     """
+    if min_count is None:
+        min_count = getattr(Config, "MIN_CLASS_COUNT", 8)
     if dataset == "PTBXL":
         fold = df["strat_fold"].astype(int)
         split = np.where(fold <= 8, "train", np.where(fold == 9, "val", "test"))
@@ -145,18 +187,36 @@ def assign_splits(df, dataset, label_col="label", min_count=8):
         )
         df = df[~df[label_col].isin(rare.index)].reset_index(drop=True)
 
-    train, rest = train_test_split(
-        df,
-        test_size=0.30,
-        stratify=df[label_col],
-        random_state=42
-    )
-    val, test = train_test_split(
-        rest,
-        test_size=0.50,
-        stratify=rest[label_col],
-        random_state=42
-    )
+    try:
+        train, rest = train_test_split(
+            df,
+            test_size=0.30,
+            stratify=df[label_col],
+            random_state=42
+        )
+    except ValueError:
+        # A class has too few members to stratify (only possible when
+        # MIN_CLASS_COUNT is lowered below the safe value).
+        print(
+            "[DatasetLoader] Stratified train/rest split failed "
+            "(class with too few members) -> falling back to random split."
+        )
+        train, rest = train_test_split(df, test_size=0.30, random_state=42)
+
+    try:
+        val, test = train_test_split(
+            rest,
+            test_size=0.50,
+            stratify=rest[label_col],
+            random_state=42
+        )
+    except ValueError:
+        print(
+            "[DatasetLoader] Stratified val/test split failed "
+            "(class with too few members) -> falling back to random split."
+        )
+        val, test = train_test_split(rest, test_size=0.50, random_state=42)
+
     return pd.concat(
         [train.assign(split="train"), val.assign(split="val"), test.assign(split="test")]
     ).reset_index(drop=True)

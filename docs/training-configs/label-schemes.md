@@ -121,3 +121,27 @@ same 4-class output head. See `src/evaluation/cross_dataset_test.py`.
   (`target_class.isin(TARGET_CLASSES)`).
 * Native experiments therefore see the full per-dataset label space; the class list is derived
   data-driven from the manifest (`class_names = sorted(unique native labels)`).
+
+---
+
+## 6. Config-driven class selection
+
+Which classes a native experiment actually uses is decided **only by config**
+(`src/config/experiment_configs.py`). Training and EDA both read it, so the class
+distribution shown by EDA is exactly the one training sees.
+
+| Config | Default | Meaning |
+| :--- | :--- | :--- |
+| `LABEL_SCHEME` | `"native"` | `"native"` → per-dataset codes; `"mapped"` → shared 4-class |
+| `USE_NATIVE_ALL_CLASSES` | `True` | **The native toggle**: while `True` no mapping/filtering is applied — every class present in the manifest is used (3 leads) |
+| `NATIVE_CLASS_SELECTION` | `"all"` | Future hook (ignored while `USE_NATIVE_ALL_CLASSES=True`): `"all"` / `"allowlist"` / `"map"` |
+| `NATIVE_CLASS_ALLOWLIST` | `[]` | Native codes kept when `NATIVE_CLASS_SELECTION="allowlist"` |
+| `NATIVE_CLASS_MAPPING` | `{}` | Rewrites native code → target label when `NATIVE_CLASS_SELECTION="map"` |
+| `MIN_CLASS_COUNT` | `8` | Classes with fewer samples are dropped at split time (cannot be stratified) |
+
+* `DatasetLoader.resolve_label` applies the selection after resolving labels, then derives
+  `class_names` data-driven from the surviving labels.
+* `src/analysis/eda_dataset_profiles.py` calls the **same** `resolve_label`, so its figures
+  and CSVs follow the config: with `native` + all classes it plots the **full** native class
+  distribution (one figure per folder + per active folder, long-format
+  `class_distribution_by_folder.csv`); with `mapped` it plots the shared 4-class distribution.

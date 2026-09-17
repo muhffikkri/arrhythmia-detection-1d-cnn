@@ -27,6 +27,30 @@ class Config:
     LABEL_SCHEME = "native"
 
     # =========================================================
+    # NATIVE CLASS SELECTION (CONFIG-DRIVEN)
+    # =========================================================
+    # USE_NATIVE_ALL_CLASSES is THE toggle that decides which classes a
+    # native experiment actually trains on. While True, NO mapping and NO
+    # filtering is applied: every class present in the manifest is used
+    # (3 leads, full label space). The dataset loader reads this switch.
+    USE_NATIVE_ALL_CLASSES = True
+
+    # Future switches — ignored while USE_NATIVE_ALL_CLASSES is True.
+    # They let later research restrict or remap classes from config alone,
+    # without touching dataset scripts:
+    #   "all"           -> every native class                      (default)
+    #   "allowlist"     -> keep only NATIVE_CLASS_ALLOWLIST codes
+    #   "map"           -> rewrite native codes via NATIVE_CLASS_MAPPING
+    NATIVE_CLASS_SELECTION = "all"
+    NATIVE_CLASS_ALLOWLIST = []
+    NATIVE_CLASS_MAPPING = {}
+
+    # Minimum samples per class to survive split assignment (classes below
+    # this cannot be stratified into train/val/test and are dropped with a
+    # warning by the loader).
+    MIN_CLASS_COUNT = 8
+
+    # =========================================================
     # EXPERIMENT ID (RESEARCH-PHASE RECORDING)
     # =========================================================
     # Unique research-phase experiment ID per docs/research-progress.md,
