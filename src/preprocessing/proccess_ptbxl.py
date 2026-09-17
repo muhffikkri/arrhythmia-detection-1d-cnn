@@ -166,8 +166,12 @@ for ecg_id, row in tqdm(
         row['scp_codes']
     )
 
-    if target_cls is None:
-        continue
+    # NOTE: the mapped 4-class target is derived for the legacy /
+    # cross-dataset scheme ONLY and does NOT filter the dataset. Every
+    # PTB-XL record is stored so native all-class baselines
+    # (LABEL_SCHEME="native") see the full label space; unmapped records
+    # simply keep target_class=None while native_label still carries the
+    # SCP code.
 
     # Native (highest-confidence SCP code) label: makes the manifest
     # self-contained so LABEL_SCHEME="native" does not need the raw

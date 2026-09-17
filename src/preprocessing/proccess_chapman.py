@@ -172,8 +172,12 @@ for hea_path in tqdm(hea_files, desc="Processing Chapman"):
 
         target_cls = map_chapman_classes(dx_str)
 
-        if target_cls is None:
-            continue
+        # NOTE: the mapped 4-class target is derived for the legacy /
+        # cross-dataset scheme ONLY and does NOT filter the dataset. Every
+        # Chapman record is stored so native all-class baselines
+        # (LABEL_SCHEME="native") see the full label space; unmapped records
+        # simply keep target_class=None while native_label still carries the
+        # SNOMED code.
 
         # =========================================================
         # RECORD PATH

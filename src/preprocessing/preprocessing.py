@@ -16,7 +16,11 @@ import pywt
 # GLOBAL CONFIG
 # =========================================================
 
-PIPELINE_VERSION = "v6.0_100_500hz"
+# v6.1: 100/500 Hz folders now store EVERY record (native all-class).
+# The mapped 4-class target_class is still derived (legacy / cross-dataset)
+# but no longer filters which records are preprocessed; native_label keeps
+# the original SCP / SNOMED code for LABEL_SCHEME="native".
+PIPELINE_VERSION = "v6.1_100_500hz"
 
 DEFAULT_CLIP_MIN = -5.0
 DEFAULT_CLIP_MAX = 5.0
