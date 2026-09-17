@@ -483,20 +483,20 @@ for ecg_id, row in tqdm(
             clean_sha1,
 
         # ============================================================
-        # PATHS
+        # PATHS (relative to BASE_DIR for portability, e.g. Kaggle)
         # ============================================================
 
         "path_ptbxl_raw_100hz":
-            paths.get("ptbxl_raw_100hz", None),
+            cfg.to_relative_path(paths.get("ptbxl_raw_100hz", None)),
 
         "path_ptbxl_clean_100hz":
-            paths.get("ptbxl_clean_100hz", None),
+            cfg.to_relative_path(paths.get("ptbxl_clean_100hz", None)),
 
         "path_ptbxl_raw_500hz":
-            paths.get("ptbxl_raw_500hz", None),
+            cfg.to_relative_path(paths.get("ptbxl_raw_500hz", None)),
 
         "path_ptbxl_clean_500hz":
-            paths.get("ptbxl_clean_500hz", None)
+            cfg.to_relative_path(paths.get("ptbxl_clean_500hz", None))
     })
 
 

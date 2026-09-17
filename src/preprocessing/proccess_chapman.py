@@ -379,19 +379,19 @@ for hea_path in tqdm(hea_files, desc="Processing Chapman"):
             "sha1": sha1_hash,
 
             # ---------------------------------------------
-            # STORAGE
+            # STORAGE (relative to BASE_DIR for portability)
             # ---------------------------------------------
             "path_chapman_raw_500hz":
-                paths.get("chapman_raw_500hz", None),
+                cfg.to_relative_path(paths.get("chapman_raw_500hz", None)),
 
             "path_chapman_clean_500hz":
-                paths.get("chapman_clean_500hz", None),
+                cfg.to_relative_path(paths.get("chapman_clean_500hz", None)),
 
             "path_chapman_raw_100hz":
-                paths.get("chapman_raw_100hz", None),
+                cfg.to_relative_path(paths.get("chapman_raw_100hz", None)),
 
             "path_chapman_clean_100hz":
-                paths.get("chapman_clean_100hz", None)
+                cfg.to_relative_path(paths.get("chapman_clean_100hz", None))
         })
 
     except Exception as e:
