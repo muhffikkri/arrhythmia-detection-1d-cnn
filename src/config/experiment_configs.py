@@ -94,7 +94,7 @@ class Config:
     KFOLD_SPLITS = 5
     LABEL_SMOOTHING = 0.0
     USE_MIXUP = False
-    MIXUP_ALPHA = 0.1
+    MIXUP_ALPHA = 0.0
     USE_SEPARABLE_CONV = False
     USE_AUGMENTATION = False
     STOCHASTIC_DEPTH_RATE = 0.0
@@ -197,7 +197,7 @@ class Config:
 
     SAVE_MODEL_SUMMARY = True
 
-    UNDERSAMPLE_RATIO = 10
+    UNDERSAMPLE_RATIO = 0
 
     # =========================================================
     # OVERSAMPLING
@@ -206,7 +206,7 @@ class Config:
     # - None: No oversampling.
     # - "smote": Use SMOTE oversampling.
     # - "smote_tomek": Use SMOTE-Tomek oversampling.
-    OVERSAMPLE_METHOD = "smote_tomek"
+    OVERSAMPLE_METHOD = "None"
 
     # Strategy for oversampling.
     # Can be 'auto', float, or dictionary.

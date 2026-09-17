@@ -381,6 +381,80 @@ if not comb.empty:
     plt.close()
 
 # =====================================================================
+# INTEGRITY AUDITS (DUPLICATES, PATIENT LEAKAGE, ECG OVERLAP)
+# =====================================================================
+
+print("\n--> Running integrity audits...")
+
+# Duplicate filenames
+dup_ptb = ptb_manifest[ptb_manifest["filename_npy"].duplicated()]
+dup_chap = chap_manifest[chap_manifest["filename_npy"].duplicated()]
+print(f"PTB-XL duplicate filenames : {len(dup_ptb)}")
+print(f"Chapman duplicate filenames: {len(dup_chap)}")
+
+# Patient leakage audit (PTB-XL only, uses strat_fold)
+if "strat_fold" in ptb_manifest.columns:
+    train_patients = set(
+        ptb_manifest[
+            ptb_manifest["strat_fold"].isin(range(1, 9))
+        ]["patient_id"]
+    )
+    test_patients = set(
+        ptb_manifest[
+            ptb_manifest["strat_fold"] == 10
+        ]["patient_id"]
+    )
+    overlap = train_patients.intersection(test_patients)
+    print(f"Train patients : {len(train_patients)}")
+    print(f"Test patients  : {len(test_patients)}")
+    print(f"Overlap        : {len(overlap)}")
+    if len(overlap) == 0:
+        print("✓ No patient leakage detected")
+    else:
+        print("⚠ Patient leakage detected!")
+else:
+    overlap = set()
+
+# ECG overlap audit (same ECG in multiple folds)
+if "strat_fold" in ptb_manifest.columns and "ecg_id" in ptb_manifest.columns:
+    ecg_overlap = ptb_manifest.groupby("ecg_id")["strat_fold"].nunique()
+    ecg_overlap = ecg_overlap[ecg_overlap > 1]
+    print(f"ECG overlap count (multi-fold): {len(ecg_overlap)}")
+else:
+    ecg_overlap = pd.Series(dtype=int)
+
+# Save integrity summary
+integrity_summary = pd.DataFrame([{
+    "ptbxl_duplicate_filenames": len(dup_ptb),
+    "chapman_duplicate_filenames": len(dup_chap),
+    "patient_leakage_count": len(overlap),
+    "ecg_multi_fold_overlap": len(ecg_overlap),
+}])
+integrity_path = os.path.join(OUT_DIR, "integrity_audit_summary.csv")
+integrity_summary.to_csv(integrity_path, index=False)
+print(f"Saved: {integrity_path}")
+
+# =====================================================================
+# CLASS DISTRIBUTION TABLE (CROSSTAB)
+# =====================================================================
+
+# Build combined master df for crosstab (using resolved labels)
+master_parts = []
+for key in ACTIVE_FOLDERS:
+    dataset = "PTB-XL" if key.startswith("ptbxl") else "Chapman"
+    dem = ptb_dem if dataset == "PTB-XL" else chap_dem
+    path_col = f"path_{key}"
+    if path_col not in dem.columns:
+        continue
+    sub = dem[dem[path_col].notna()].copy()
+    master_parts.append(sub[["Dataset", "label", "Age", "Sex"]])
+if master_parts:
+    master_df = pd.concat(master_parts, ignore_index=True)
+    class_table = pd.crosstab(master_df["Dataset"], master_df["label"])
+    class_table.to_csv(os.path.join(OUT_DIR, "class_distribution_table.csv"))
+    print("Saved: class_distribution_table.csv")
+
+# =====================================================================
 # FINISHED
 # =====================================================================
 
