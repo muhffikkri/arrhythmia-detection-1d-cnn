@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Re-enable the unified **250 Hz** scheme (`GENERATE_SCHEMES["250hz"] = True`) once the 100/500 Hz
   experiments are finalized (hardware-aligned to the ADS1293 AFE).
 
+### Changed
+- **Preprocessing no longer filters by the 4-class mapping**: `proccess_ptbxl.py` / `proccess_chapman.py`
+  now store **every** record in the 100/500 Hz folders. `native_label` (original SCP / SNOMED code) is
+  kept for `LABEL_SCHEME="native"` (no mapping applied), and the derived `target_class` remains only
+  for the legacy / cross-dataset `mapped` scheme. `PIPELINE_VERSION` bumped to `v6.1_100_500hz`.
+  Docs updated (`docs/training-configs/label-schemes.md`).
+
 ---
 
 ## [1.5.0] - 2026-09-17

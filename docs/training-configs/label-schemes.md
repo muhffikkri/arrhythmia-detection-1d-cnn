@@ -72,10 +72,9 @@ short label, full English name, and SNOMED-CT code for the same class:
 
 - Primary: **SCP codes** from `scp_statements.csv` / the `scp_codes` column
   (e.g. `NORM`, `AFIB`, `SBRAD`, `STACH`, `MI`, `LBBB`, …).
-- Fallback / summary: `diagnostic_superclass` (`NORM`, `MI`, `CD`, `STTC`, `HYP`) plus
-  the `diagnostic_subclass` / `diagnostic_statement` columns.
-- Label count = number of distinct codes kept in the manifest
-  (`manifest_counts.json` written during preprocessing).
+- Stored per record as `native_label` in `manifest_ptbxl.csv`.
+- Native class count = number of distinct `native_label` SCP codes in the manifest
+  (dropped later at load time only for classes too rare to stratify).
 
 ### 3.2 Chapman
 
@@ -111,9 +110,14 @@ same 4-class output head. See `src/evaluation/cross_dataset_test.py`.
 
 ## 5. Preprocessing / label persistence
 
-* `scripts/data_utils.py` (`load_*_data`) create the module-level dataframe that already
-  contains the final `label` column using the scheme above — no per-script mapping.
-* A `manifest_counts.json` is exported alongside per-dataset pipeline output so class
-  counts are reproducible and visible without re-reading the raw data.
-* The 4-class `mapped` filtering only touches train/val/test splits; the full native
-  labels remain stored in the manifest for later native experiments.
+* Preprocessing (`proccess_ptbxl.py` / `proccess_chapman.py`, pipeline **v6.1+**) stores
+  **every** ECG record in the 100/500 Hz folders. Each manifest row carries:
+  - `native_label` → the original SCP (PTB-XL) / SNOMED-CT (Chapman) code, used directly by
+    `LABEL_SCHEME="native"` — **no class mapping is applied**;
+  - `target_class` → the derived shared 4-class value (blank for records that do not map),
+    used only by the legacy / cross-dataset `mapped` scheme.
+* No record is dropped at preprocessing time because it falls outside the 4-class mapping;
+  the mapped filter is applied **only at load time** by `DatasetLoader.resolve_label`
+  (`target_class.isin(TARGET_CLASSES)`).
+* Native experiments therefore see the full per-dataset label space; the class list is derived
+  data-driven from the manifest (`class_names = sorted(unique native labels)`).
