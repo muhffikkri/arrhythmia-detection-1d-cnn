@@ -18,8 +18,8 @@ the reproducibility contract every run must satisfy.
 | Phase | Focus | Status | Experiment IDs |
 |---|---|---|---|
 | 0 | Repository & pipeline infrastructure | In progress (infra items below) | — |
-| 1 | Raw-data baselines (PTB-XL, Chapman, per fs) | Planned | `RAW_*_3L` |
-| 2 | Cleaned-data comparison vs raw | Planned | `CLEAN_*_3L` |
+| 1 | Raw-data baselines (PTB-XL, Chapman, per fs) | Notebook ready (`kaggle/`) | `RAW_*_3L` |
+| 2 | Cleaned-data comparison vs raw | Notebook ready (`kaggle/`) | `CLEAN_*_3L` |
 | 3 | Cross-dataset (zero-shot external) | Planned | `CROSS_*_TO_*` |
 | 4 | Clinical 3-lead analysis (I, II, III) | Planned | `*_3L` |
 | 5 | Focused model for the best lead/fs combo | Planned | `FOCUSED_*_3L` |

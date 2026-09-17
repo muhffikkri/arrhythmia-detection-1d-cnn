@@ -24,7 +24,7 @@ A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-
 | [docs/training-env.md](docs/training-env.md) | Environment setup & GPU training on Windows / Linux |
 | [docs/dataset-label-map.md](docs/dataset-label-map.md) | Mapped vs. native label schemes |
 | [docs/training-configs/](docs/training-configs/) | Best-config cards (legacy 250 Hz baseline) |
-| [kaggle/train_all_schemes.ipynb](kaggle/train_all_schemes.ipynb) | Run the whole scheme matrix on Kaggle (GPU) |
+| [kaggle/train_all_schemes.ipynb](kaggle/train_all_schemes.ipynb) | Phase 1 & 2 baseline notebook (RAW vs CLEANED, folder-driven) on Kaggle (GPU) |
 
 ---
 
