@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   experiments are finalized (hardware-aligned to the ADS1293 AFE).
 
 ### Changed
+- **Config-driven native class selection added**: `USE_NATIVE_ALL_CLASSES=True` (default) makes
+  `LABEL_SCHEME="native"` use **every** class in the manifest (3 leads); `NATIVE_CLASS_SELECTION`
+  (`all`/`allowlist`/`map`), `NATIVE_CLASS_ALLOWLIST`, `NATIVE_CLASS_MAPPING` and `MIN_CLASS_COUNT`
+  are the future hooks to restrict/remap classes from config alone. `DatasetLoader.resolve_label`
+  applies the selection; `eda_dataset_profiles.py` reuses it so EDA shows the **full** class
+  distribution under native (per-folder figures + `class_distribution_by_folder.csv`).
 - **Preprocessing no longer filters by the 4-class mapping**: `proccess_ptbxl.py` / `proccess_chapman.py`
   now store **every** record in the 100/500 Hz folders. `native_label` (original SCP / SNOMED code) is
   kept for `LABEL_SCHEME="native"` (no mapping applied), and the derived `target_class` remains only
