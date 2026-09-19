@@ -19,8 +19,6 @@ from sklearn.metrics import (
 
     balanced_accuracy_score,
 
-    roc_auc_score,
-
     precision_score,
 
     recall_score,
@@ -161,126 +159,6 @@ def evaluate_hardware_efficiency(
 
         "Inference_Time_ms":
             round(infer_time_ms, 3),
-    }
-
-# =====================================================================
-# ROBUSTNESS TEST
-# =====================================================================
-
-def evaluate_stress_test(
-    model,
-    x_test,
-    y_test,
-):
-
-    """
-    Robustness evaluation:
-    - AWGN
-    - Baseline Wander
-    """
-
-    y_true = np.argmax(
-        y_test,
-        axis=1
-    )
-
-    # ================================================================
-    # AWGN
-    # ================================================================
-
-    signal_power = np.mean(
-
-        x_test ** 2,
-
-        axis=(1, 2),
-
-        keepdims=True
-    )
-
-    noise_power = signal_power / (
-
-        10 ** (10 / 10)
-    )
-
-    awgn = np.random.normal(
-
-        0,
-
-        np.sqrt(noise_power),
-
-        x_test.shape
-    )
-
-    x_awgn = x_test + awgn
-
-    x_awgn = np.clip(
-        x_awgn,
-        -5.0,
-        5.0
-    )
-
-    y_pred_awgn = np.argmax(
-
-        model.predict(
-            x_awgn,
-            verbose=0
-        ),
-
-        axis=1
-    )
-
-    # ================================================================
-    # BASELINE WANDER
-    # ================================================================
-
-    t = np.arange(
-        x_test.shape[1]
-    ) / 250.0
-
-    bw_wave = 0.1 * np.sin(
-        2 * np.pi * 0.3 * t
-    )
-
-    bw_wave = np.broadcast_to(
-
-        bw_wave[np.newaxis, :, np.newaxis],
-
-        x_test.shape
-    )
-
-    x_bw = x_test + bw_wave
-
-    x_bw = np.clip(
-        x_bw,
-        -5.0,
-        5.0
-    )
-
-    y_pred_bw = np.argmax(
-
-        model.predict(
-            x_bw,
-            verbose=0
-        ),
-
-        axis=1
-    )
-
-    return {
-
-        "Bal_Acc_AWGN_10dB":
-
-            balanced_accuracy_score(
-                y_true,
-                y_pred_awgn
-            ),
-
-        "Bal_Acc_Baseline_Wander":
-
-            balanced_accuracy_score(
-                y_true,
-                y_pred_bw
-            )
     }
 
 # =====================================================================
@@ -505,35 +383,10 @@ def calculate_ml_metrics(
     }
 
     # ================================================================
-    # MACRO AUROC
-    # ================================================================
-
-    try:
-
-        macro_auroc = roc_auc_score(
-
-            y_test,
-
-            y_pred_prob,
-
-            multi_class='ovr',
-
-            average='macro'
-        )
-
-        metrics["Macro_AUROC"] = float(
-            macro_auroc
-        )
-
-    except:
-
-        metrics["Macro_AUROC"] = np.nan
-
-    # ================================================================
     # PER CLASS
     # ================================================================
 
-    for i, cls in enumerate(cfg.CLASS_NAMES):
+    for cls in cfg.CLASS_NAMES:
 
         if cls in report:
 
@@ -548,22 +401,5 @@ def calculate_ml_metrics(
             metrics[f"F1_{cls}"] = float(
                 report[cls]["f1-score"]
             )
-
-            try:
-
-                cls_auc = roc_auc_score(
-
-                    y_test[:, i],
-
-                    y_pred_prob[:, i]
-                )
-
-                metrics[f"AUROC_{cls}"] = float(
-                    cls_auc
-                )
-
-            except:
-
-                metrics[f"AUROC_{cls}"] = np.nan
 
     return metrics

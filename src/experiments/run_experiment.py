@@ -24,7 +24,6 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from sklearn.metrics import (
     f1_score,
-    roc_auc_score,
     accuracy_score,
     recall_score,
     classification_report,
@@ -274,10 +273,6 @@ def evaluate_sigmoid(model, X_test, y_test, thresholds, class_names):
     }
     for i, cls in enumerate(class_names):
         metrics[f"F1_{cls}"] = float(f1_score(y_test[:, i], y_bin[:, i], zero_division=0))
-        try:
-            metrics[f"AUROC_{cls}"] = float(roc_auc_score(y_test[:, i], y_prob[:, i]))
-        except ValueError:
-            metrics[f"AUROC_{cls}"] = float("nan")
 
     return metrics, y_bin, y_prob
 

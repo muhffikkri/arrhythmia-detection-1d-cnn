@@ -7,18 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.6.0] - 2026-09-19
 
-### Planned
-- Run the research phases: (3) in-domain & direct cross-dataset experiments E1–E4 on cleaned tensors,
-  (4) re-train on the subset of classes that are clinically detectable with 3 leads,
-  (5) rule-based verification for false positives/negatives and derived leads (aVR/aVL/aVF) as auxiliary input.
-- Upload the **raw** and **cleaned** tensor datasets as two separate Kaggle datasets; run the notebook
-  "Save Version" against the relevant dataset URL.
-- Re-enable the unified **250 Hz** scheme (`GENERATE_SCHEMES["250hz"] = True`) once the 100/500 Hz
-  experiments are finalized (hardware-aligned to the ADS1293 AFE).
+### Added
+- **Self-contained Phase 1 & 2 training notebook** (`kaggle/train_phase1-2.ipynb`), replacing
+  `kaggle/train_all_schemes.ipynb`: no `src/` dependency. Auto-detects the dataset root under
+  `/kaggle/input`, trains one **softmax + native (all-class)** model per dataset × active folder, and
+  saves `best_model.keras` + `metrics.csv` + `classification_report.txt` + `training_history.csv` +
+  `predictions.npz` + `experiment_metadata.json` per run. Folder picking stays copy-paste driven via
+  `DATA_SELECTION` (`500Hz`/`100Hz`) and `RUN_PHASES` (`Phase1_Raw`/`Phase2_Cleaned`); empty folders
+  are skipped. A smoke harness (`FAST_MODE=True`) exercises the full path
+  (data → training → reload → confusion/misclassified plots → zip).
+- **Inline Kaggle evaluation**: right after each run the notebook **saves and renders** the
+  classification report, the confusion matrix (counts + normalized) and the first misclassified
+  ECG samples (3-lead clinical panels) under each `<experiment_id>/` folder, so results can be
+  assessed immediately on Kaggle.
 
 ### Changed
+- **Stress test and (macro/per-class) AUROC removed from the pipeline**:
+  `src/evaluation/evaluator.py` loses `evaluate_stress_test()` and the AUROC metric blocks;
+  `src/experiments/run_experiment.py` no longer writes `AUROC_*` columns; and
+  `src/evaluation/run_statistical_tests.py` guards the `Macro_AUROC` column (NaN when absent).
+- **README**: Step 6 rewritten (training-only notebook + local post-analysis for statistical tests /
+  Grad-CAM / cross-dataset evaluation, Keras 3 `compile=False` + `custom_objects` note); docs table
+  and directory tree updated.
 - **Portable manifests**: the `path_*` columns in `manifest_ptbxl.csv` / `manifest_chapman.csv` now
   store paths **relative to the project root** (`config.BASE_DIR`) via `config.to_relative_path()`,
   so `dataset/resample` can be uploaded to Kaggle and mounted elsewhere without rewriting the CSVs;
@@ -35,6 +47,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   kept for `LABEL_SCHEME="native"` (no mapping applied), and the derived `target_class` remains only
   for the legacy / cross-dataset `mapped` scheme. `PIPELINE_VERSION` bumped to `v6.1_100_500hz`.
   Docs updated (`docs/training-configs/label-schemes.md`).
+
+---
+
+## [Unreleased]
+
+### Planned
+- Run the research phases: (3) in-domain & direct cross-dataset experiments E1–E4 on cleaned tensors,
+  (4) re-train on the subset of classes that are clinically detectable with 3 leads,
+  (5) rule-based verification for false positives/negatives and derived leads (aVR/aVL/aVF) as auxiliary input.
+- Upload the **raw** and **cleaned** tensor datasets as two separate Kaggle datasets; run the notebook
+  "Save Version" against the relevant dataset URL.
+- Re-enable the unified **250 Hz** scheme (`GENERATE_SCHEMES["250hz"] = True`) once the 100/500 Hz
+  experiments are finalized (hardware-aligned to the ADS1293 AFE).
 
 ---
 

@@ -49,6 +49,39 @@ chapman_to_target_mapping = label_cfg.CHAPMAN_TO_TARGET_MAPPING
 
 
 # =====================================================================
+# CHAPMAN SNOMED-CT -> ACRONYM MAP (for native_label)
+# =====================================================================
+
+CHAPMAN_SNOMED_TO_ACRONYM = {
+    '426177001': 'SB',      # Sinus Bradycardia
+    '426783006': 'SR',      # Sinus Rhythm
+    '164889003': 'AFIB',    # Atrial Fibrillation
+    '164890007': 'AFLT',    # Atrial Flutter
+    '427084000': 'ST',      # Sinus Tachycardia
+    '426761007': 'SVT',     # Supraventricular Tachycardia
+    '713422000': 'AT',      # Atrial Tachycardia
+    '233896004': 'AVNRT',   # AVNRT
+    '233897008': 'AVRT',    # AVRT
+    '195101003': 'SAAWR',   # Sinus Atrium to Atrial Wandering Rhythm
+    '427393009': 'SI',      # Sinus Irregularity
+}
+
+def _first_acronym_from_dx(dx_string):
+    """Extract first acronym from Chapman diagnostic string.
+    Prefers acronym codes (SB, SR, AFIB, etc.) over SNOMED-CT codes.
+    """
+    codes = [c.strip() for c in str(dx_string).split(",") if c.strip()]
+    for code in codes:
+        if not code.isdigit():  # Already an acronym
+            return code
+    # All numeric (SNOMED) -> map first to acronym
+    for code in codes:
+        if code in CHAPMAN_SNOMED_TO_ACRONYM:
+            return CHAPMAN_SNOMED_TO_ACRONYM[code]
+    return codes[0] if codes else "UNKNOWN"
+
+
+# =====================================================================
 # LABEL PRIORITY MAPPING
 # =====================================================================
 
@@ -170,7 +203,7 @@ for hea_path in tqdm(hea_files, desc="Processing Chapman"):
         # LABEL MAPPING
         # =========================================================
 
-        target_cls = map_chapman_classes(dx_str)
+        target_cls = _first_acronym_from_dx(dx_str)
 
         # NOTE: the mapped 4-class target is derived for the legacy /
         # cross-dataset scheme ONLY and does NOT filter the dataset. Every
@@ -341,11 +374,14 @@ for hea_path in tqdm(hea_files, desc="Processing Chapman"):
             "target_class": target_cls,
             "diagnostic_string": dx_str,
 
-            # Native (primary SNOMED-CT code) label: makes the manifest
-            # self-contained for cleaned-only Kaggle runs with
-            # LABEL_SCHEME="native" (drops the trainer dependency on the
-            # raw .hea files).
-            "native_label": str(dx_str).split(",")[0].strip(),
+            # Native label (prefers acronym: SB, SR, AFIB, ST, etc.)
+            # Self-contained for cleaned-only Kaggle runs with
+            # LABEL_SCHEME="native" (no raw .hea files needed).
+            "native_label": _first_acronym_from_dx(dx_str),
+
+            # Acronym-based target class for native label scheme
+            # (each Chapman acronym becomes its own class)
+            "target_class_acronym": _first_acronym_from_dx(dx_str),
 
             # ---------------------------------------------
             # SHAPE
@@ -379,19 +415,20 @@ for hea_path in tqdm(hea_files, desc="Processing Chapman"):
             "sha1": sha1_hash,
 
             # ---------------------------------------------
-            # STORAGE (relative to BASE_DIR for portability)
+            # STORAGE (relative to RESAMPLE_BASE)
             # ---------------------------------------------
             "path_chapman_raw_500hz":
-                cfg.to_relative_path(paths.get("chapman_raw_500hz", None)),
+                os.path.relpath(paths["chapman_raw_500hz"], cfg.RESAMPLE_BASE).replace(os.sep, "/") if "chapman_raw_500hz" in paths else None,
 
             "path_chapman_clean_500hz":
-                cfg.to_relative_path(paths.get("chapman_clean_500hz", None)),
+                os.path.relpath(paths["chapman_clean_500hz"], cfg.RESAMPLE_BASE).replace(os.sep, "/") if "chapman_clean_500hz" in paths else None,
 
             "path_chapman_raw_100hz":
-                cfg.to_relative_path(paths.get("chapman_raw_100hz", None)),
+                os.path.relpath(paths["chapman_raw_100hz"], cfg.RESAMPLE_BASE).replace(os.sep, "/") if "chapman_raw_100hz" in paths else None,
 
             "path_chapman_clean_100hz":
-                cfg.to_relative_path(paths.get("chapman_clean_100hz", None))
+                os.path.relpath(paths["chapman_clean_100hz"], cfg.RESAMPLE_BASE).replace(os.sep, "/") if "chapman_clean_100hz" in paths else None
+
         })
 
     except Exception as e:

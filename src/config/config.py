@@ -8,14 +8,39 @@ import os
 
 # =========================================================
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-DATASET_DIR = os.path.join(BASE_DIR, "dataset")
+try:
+    # 1. LOCAL ENVIRONMENT (Python Scripts)
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    DATASET_DIR = os.path.join(BASE_DIR, "dataset")
+    RESAMPLE_BASE = os.path.join(DATASET_DIR, "resample")
+except NameError:
+    # 2. NOTEBOOK ENVIRONMENT (__file__ is undefined)
+    BASE_DIR = os.getcwd()
+    
+    if os.path.exists("/kaggle/input"):
+        # Kaggle Environment
+        # Auto-detect the dataset path in case the Kaggle slug differs
+        _found_resample = None
+        for root, dirs, files in os.walk("/kaggle/input"):
+            if "manifest_ptbxl.csv" in files:
+                _found_resample = root
+                break
+        
+        if _found_resample:
+            RESAMPLE_BASE = _found_resample
+        else:
+            RESAMPLE_BASE = "/kaggle/input/ekg-dataset"
+            
+        DATASET_DIR = os.path.dirname(RESAMPLE_BASE)
+    else:
+        # Local Jupyter Notebook Environment
+        DATASET_DIR = os.path.join(BASE_DIR, "dataset")
+        RESAMPLE_BASE = os.path.join(DATASET_DIR, "resample")
 
 OUTPUT_DIR = os.path.join(
-BASE_DIR,
-"output",
-# "experiment_check"
+    BASE_DIR,
+    "output",
+    # "experiment_check"
 )
 
 # =========================================================
@@ -25,15 +50,15 @@ BASE_DIR,
 # =========================================================
 
 PTBXL_CSV = os.path.join(
-DATASET_DIR,
-"PTBXL",
-"ptbxl_database.csv"
+    DATASET_DIR,
+    "PTBXL",
+    "ptbxl_database.csv"
 )
 
 PTBXL_SCP = os.path.join(
-DATASET_DIR,
-"PTBXL",
-"scp_statements.csv"
+    DATASET_DIR,
+    "PTBXL",
+    "scp_statements.csv"
 )
 
 # =========================================================
@@ -43,15 +68,15 @@ DATASET_DIR,
 # =========================================================
 
 CHAPMAN_CSV = os.path.join(
-DATASET_DIR,
-"Chapman",
-"ConditionNames_SNOMED-CT.csv"
+    DATASET_DIR,
+    "Chapman",
+    "ConditionNames_SNOMED-CT.csv"
 )
 
 CHAPMAN_RECS = os.path.join(
-DATASET_DIR,
-"Chapman",
-"WFDBRecords"
+    DATASET_DIR,
+    "Chapman",
+    "WFDBRecords"
 )
 
 # =========================================================
@@ -60,10 +85,6 @@ DATASET_DIR,
 
 # =========================================================
 
-RESAMPLE_BASE = os.path.join(
-DATASET_DIR,
-"resample"
-)
 
 # =========================================================
 
@@ -84,6 +105,21 @@ def to_relative_path(path):
     except (TypeError, ValueError):
         return path
     return rel.replace(os.sep, "/")
+
+
+def to_kaggle_relative_path(path):
+    """Absolute path -> portable path relative to RESAMPLE_BASE (POSIX sep).
+    Used for Kaggle manifests where the resample/ folder is uploaded as dataset root.
+    Result: 'ptbxl_raw_500hz/filename.npy' instead of 'dataset/resample/ptbxl_raw_500hz/filename.npy'.
+    """
+    if path is None:
+        return None
+    try:
+        rel = os.path.relpath(os.path.abspath(str(path)), RESAMPLE_BASE)
+    except (TypeError, ValueError):
+        return path
+    rel = rel.replace(os.sep, "/")
+    return f"/kaggle/input/datasets/muhffikkri/ecg-dataset/{rel}"
 
 
 def resolve_path(path):

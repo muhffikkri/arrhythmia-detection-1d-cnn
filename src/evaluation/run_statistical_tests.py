@@ -322,10 +322,12 @@ for exp in sorted(df_internal["Experiment"].unique()):
 
         "Balanced_Accuracy_Mean":
             rows["Balanced_Accuracy"].mean(),
-
-        "Macro_AUROC_Mean":
-            rows["Macro_AUROC"].mean()
     }
+
+    if "Macro_AUROC" in rows.columns:
+        entry["Macro_AUROC_Mean"] = rows["Macro_AUROC"].mean()
+    else:
+        entry["Macro_AUROC_Mean"] = float("nan")
 
     for col in ["Scheme", "Label_Scheme"]:
         if col in rows.columns:

@@ -24,7 +24,7 @@ A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-
 | [docs/training-env.md](docs/training-env.md) | Environment setup & GPU training on Windows / Linux |
 | [docs/dataset-label-map.md](docs/dataset-label-map.md) | Mapped vs. native label schemes |
 | [docs/training-configs/](docs/training-configs/) | Best-config cards (legacy 250 Hz baseline) |
-| [kaggle/train_all_schemes.ipynb](kaggle/train_all_schemes.ipynb) | Phase 1 & 2 baseline notebook (RAW vs CLEANED, folder-driven) on Kaggle (GPU) |
+| [kaggle/train_phase1-2.ipynb](kaggle/train_phase1-2.ipynb) | Phase 1 & 2 baseline training (RAW vs CLEANED, folder-driven) on Kaggle GPU — training only; post-analysis is run locally |
 
 ---
 
@@ -55,8 +55,8 @@ A structured, research-grade pipeline for detecting cardiac arrhythmias from 12-
 │   ├── preprocessing.md        # DSP preprocessing specification (100/500 Hz scheme)
 │   ├── dataset-label-map.md    # Label mapping guide (mapped/native schemes)
 │   └── training-configs/       # Best-config reference cards (legacy 250 Hz baseline)
-├── kaggle/                     # Kaggle notebook for the full scheme matrix
-│   └── train_all_schemes.ipynb # Single notebook (DATA_SELECTION -> 100/500 Hz folder)
+├── kaggle/                     # Kaggle GPU training notebook (Phase 1 & 2 baselines)
+│   └── train_phase1-2.ipynb    # Self-contained, training-only (DATA_SELECTION -> raw/clean folder)
 ├── models/                     # Saved model files (.keras / .h5)
 ├── output/                     # Generated experiment results, logs, and plots
 ├── standalone/                 # Standalone scripts (copyright / external tools)
@@ -189,23 +189,34 @@ python src/evaluation/run_statistical_tests.py
 
 This consumes the unified tracker (`output/research_experiments/master_experiment_tracker.csv`) and produces confidence intervals and Wilcoxon pairwise comparison matrices saved in `output/statistical_tests/`. See [`docs/pipeline.md`](docs/pipeline.md) for the full workflow.
 
-### Step 6: Run the Full Scheme Matrix on Kaggle
+### Step 6: Run Phase 1 & 2 Baselines on Kaggle (GPU)
 
-[kaggle/train_all_schemes.ipynb](kaggle/train_all_schemes.ipynb) trains **all 12 plans** of the
-scheme matrix end-to-end and packs the results history, confusion matrices, cross-dataset evaluation,
-and statistical tests into one ZIP:
+[kaggle/train_phase1-2.ipynb](kaggle/train_phase1-2.ipynb) is a **self-contained,
+training-only** notebook (no `src/` dependency). It trains the **softmax + native
+(all-class)** in-domain baselines — one model per dataset × active folder — on the
+mounted **"ECG Dataset"** (PTB-XL / Chapman tensors at 100/500 Hz, raw and cleaned):
 
-| Head    | Label scheme | Valid dataset pairs                                        |
-| ------- | ------------ | ---------------------------------------------------------- |
-| softmax | mapped       | PTBXL→PTBXL, PTBXL→CHAPMAN, CHAPMAN→PTBXL, CHAPMAN→CHAPMAN |
-| softmax | native       | PTBXL→PTBXL, CHAPMAN→CHAPMAN                               |
-| sigmoid | mapped       | PTBXL→PTBXL, PTBXL→CHAPMAN, CHAPMAN→PTBXL, CHAPMAN→CHAPMAN |
-| sigmoid | native       | PTBXL→PTBXL, CHAPMAN→CHAPMAN                               |
+| Knob                          | Values                                                | Meaning                                   |
+| ----------------------------- | ----------------------------------------------------- | ----------------------------------------- |
+| `DATA_SELECTION`              | `"500Hz"` \| `"100Hz"`                                | Sampling-rate family for all plans        |
+| `RUN_PHASES`                  | `["Phase1_Raw", "Phase2_Cleaned"]`                    | Phase 1 = raw tensors, Phase 2 = cleaned  |
+| `DATASETS`                    | `["PTBXL", "CHAPMAN"]`                                | Datasets to train                        |
+| `FAST_MODE`                   | `True` (smoke) \| `False` (reference config)          | 5 vs 35 epochs, smaller/larger filters     |
 
-A single **`DATA_SELECTION`** cell switches the folder used by all plans
-(`500Hz Cleaned` / `500Hz Raw` / `100Hz Cleaned` / `100Hz Raw`), so the "pure dataset vs. preprocessed
-dataset" experiment can be reproduced by changing just that one variable. Set `RUN_EDA = False` and
-`FAST_MODE = True` for a quick end-to-end smoke test.
+Empty folders (e.g. attached only the cleaned dataset) are **skipped automatically**.
+Each run saves `best_model.keras`, `metrics.csv`, `classification_report.txt`,
+`training_history.csv`, `predictions.npz`, and `experiment_metadata.json` under
+`/kaggle/working/results/phase1_2/<experiment_id>/`, then packs everything into a ZIP.
+
+**No stress test and no (macro) AUROC** are computed anywhere in the pipeline.
+Per run, the notebook **saves and renders inline** — right after training — the
+classification report, the confusion matrix (counts + normalized), and the first
+misclassified ECG samples (3-lead clinical panels), so results can be evaluated
+immediately on Kaggle. The remaining heavy analysis (statistical tests, Grad-CAM,
+cross-dataset evaluation) runs **locally** against the downloaded artifacts via
+`src/evaluation/*` / `src/experiments/*`. When loading a saved `best_model.keras`
+with Keras 3, pass `compile=False` together with
+`custom_objects={"StochasticDepth": StochasticDepth}`.
 
 ---
 
@@ -227,8 +238,10 @@ Research questions (from the plan): Is the failure caused by **domain shift**? I
 datasets? Can **rule-based verification** correct specific false positives/negatives? Is the model
 learning **physiological vs. dataset-specific** features?
 
-> The Kaggle notebook runs every phase-1/2/3 combination via `DATA_SELECTION` (raw/clean × 100/500 Hz)
-> + the scheme matrix; currently `LABEL_SCHEME="mapped"` is required for cross-dataset plans.
+> The Kaggle notebook trains the phase 1 & 2 in-domain baselines (softmax, native labels)
+> per `DATA_SELECTION` (raw/clean × 100/500 Hz). Phases 3–5 (mapped labels, cross-dataset
+> pairs, sigmoid heads) run locally via `src/experiments/run_experiment.py` +
+> `src/evaluation/cross_dataset_test.py`.
 
 ---
 

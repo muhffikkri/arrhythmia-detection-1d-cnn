@@ -483,20 +483,21 @@ for ecg_id, row in tqdm(
             clean_sha1,
 
         # ============================================================
-        # PATHS (relative to BASE_DIR for portability, e.g. Kaggle)
+        # PATHS (relative to RESAMPLE_BASE)
         # ============================================================
 
         "path_ptbxl_raw_100hz":
-            cfg.to_relative_path(paths.get("ptbxl_raw_100hz", None)),
+            os.path.relpath(paths["ptbxl_raw_100hz"], cfg.RESAMPLE_BASE).replace(os.sep, "/") if "ptbxl_raw_100hz" in paths else None,
 
         "path_ptbxl_clean_100hz":
-            cfg.to_relative_path(paths.get("ptbxl_clean_100hz", None)),
+            os.path.relpath(paths["ptbxl_clean_100hz"], cfg.RESAMPLE_BASE).replace(os.sep, "/") if "ptbxl_clean_100hz" in paths else None,
 
         "path_ptbxl_raw_500hz":
-            cfg.to_relative_path(paths.get("ptbxl_raw_500hz", None)),
+            os.path.relpath(paths["ptbxl_raw_500hz"], cfg.RESAMPLE_BASE).replace(os.sep, "/") if "ptbxl_raw_500hz" in paths else None,
 
         "path_ptbxl_clean_500hz":
-            cfg.to_relative_path(paths.get("ptbxl_clean_500hz", None))
+            os.path.relpath(paths["ptbxl_clean_500hz"], cfg.RESAMPLE_BASE).replace(os.sep, "/") if "ptbxl_clean_500hz" in paths else None
+
     })
 
 
