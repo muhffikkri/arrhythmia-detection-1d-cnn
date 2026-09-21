@@ -52,6 +52,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Phase 4 (3-lead) subset scaffolding** in `kaggle/train_phase1-2.ipynb`: commented allowlists per
+  dataset derived from `docs/dataset-label-map.md` (PTB-XL SCP codes + Chapman rhythm acronyms;
+  PTB-XL stores SVT as `PSVT`), gated by `PHASE4_ENABLED` (default `False`) in the *Pick folders* cell.
+
+### Changed
+- **Notebook output no longer zipped**: `pack_results()` replaced by `show_output_tree()` — every
+  artifact is saved directly under `/kaggle/working/results/phase1_2/<experiment_id>/` and listed at
+  the end of the run, so files can be downloaded straight from the Kaggle **Files** panel.
+
 ### Planned
 - Run the research phases: (3) in-domain & direct cross-dataset experiments E1–E4 on cleaned tensors,
   (4) re-train on the subset of classes that are clinically detectable with 3 leads,
